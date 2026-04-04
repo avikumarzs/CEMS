@@ -51,33 +51,31 @@ public class LoginWindow extends JFrame {
         });
     }
 
-    private void handleLoginClick() {
+    private void handleLoginClick(java.awt.event.ActionEvent evt) {
         String email = emailField.getText();
         String password = new String(passwordField.getPassword());
 
-        if (email.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter both email and password.", "Input Error", JOptionPane.ERROR_MESSAGE);
-            return; 
-        } 
-
-        UserDAO userDao = new UserDAO();
-        User loggedInUser = userDao.authenticateUser(email, password);
+        // Authenticate via the database
+        dao.UserDAO userDAO = new dao.UserDAO();
+        models.User loggedInUser = userDAO.authenticateUser(email, password);
 
         if (loggedInUser != null) {
             // Success! The database found a match.
-            JOptionPane.showMessageDialog(this, "Login Successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Login Successful!");
+            this.dispose(); // Close the login window
             
-            // Close the Login Window
-            this.dispose(); 
+            // The Traffic Cop Logic
+            if (loggedInUser.getRole().equals("Organizer")) {
+                new OrganizerDashboard(loggedInUser).setVisible(true); // Route to the new Organizer Portal
+            } else {
+                new DashboardWindow(loggedInUser).setVisible(true); // Admins and Students go here for now
+            }
             
-            // Open the new Dashboard Window and pass the user data to it
-            new DashboardWindow(loggedInUser).setVisible(true);
-
         } else {
+            // Failed login
             JOptionPane.showMessageDialog(this, "Invalid email or password. Please try again.", "Login Failed", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
+    } // <-- This is the curly brace that was missing!
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
