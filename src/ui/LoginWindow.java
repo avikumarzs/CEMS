@@ -4,7 +4,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-
 import dao.UserDAO;
 import models.User;
 
@@ -43,6 +42,7 @@ public class LoginWindow extends JFrame {
         add(passwordPanel);
         add(buttonPanel);
 
+        // This action listener calls the method with no arguments
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -51,31 +51,33 @@ public class LoginWindow extends JFrame {
         });
     }
 
-    private void handleLoginClick(java.awt.event.ActionEvent evt) {
+    // Fixed: Removed the ActionEvent parameter to match the call above
+    private void handleLoginClick() {
         String email = emailField.getText();
         String password = new String(passwordField.getPassword());
 
         // Authenticate via the database
-        dao.UserDAO userDAO = new dao.UserDAO();
-        models.User loggedInUser = userDAO.authenticateUser(email, password);
+        UserDAO userDAO = new UserDAO();
+        User loggedInUser = userDAO.authenticateUser(email, password);
 
         if (loggedInUser != null) {
             // Success! The database found a match.
             JOptionPane.showMessageDialog(this, "Login Successful!");
             this.dispose(); // Close the login window
             
-            // The Traffic Cop Logic
+            // The Traffic Cop Logic: Routes user based on their database Role
             if (loggedInUser.getRole().equals("Organizer")) {
-                new OrganizerDashboard(loggedInUser).setVisible(true); // Route to the new Organizer Portal
+                new OrganizerDashboard(loggedInUser).setVisible(true); 
             } else {
-                new DashboardWindow(loggedInUser).setVisible(true); // Admins and Students go here for now
+                new DashboardWindow(loggedInUser).setVisible(true); 
             }
             
         } else {
             // Failed login
             JOptionPane.showMessageDialog(this, "Invalid email or password. Please try again.", "Login Failed", JOptionPane.ERROR_MESSAGE);
         }
-    } // <-- This is the curly brace that was missing!
+    } 
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
