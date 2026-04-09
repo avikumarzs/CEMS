@@ -42,7 +42,6 @@ public class LoginWindow extends JFrame {
         add(passwordPanel);
         add(buttonPanel);
 
-        // This action listener calls the method with no arguments
         loginButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -51,39 +50,31 @@ public class LoginWindow extends JFrame {
         });
     }
 
-    // Fixed: Removed the ActionEvent parameter to match the call above
     private void handleLoginClick() {
         String email = emailField.getText();
         String password = new String(passwordField.getPassword());
 
-        // Authenticate via the database
         UserDAO userDAO = new UserDAO();
         User loggedInUser = userDAO.authenticateUser(email, password);
 
         if (loggedInUser != null) {
-            // Success! The database found a match.
             JOptionPane.showMessageDialog(this, "Login Successful!");
-            this.dispose(); // Close the login window
+            this.dispose(); 
             
-            // The Traffic Cop Logic: Routes user based on their database Role
-            if (loggedInUser.getRole().equals("Organizer")) {
+            // ROUTING LOGIC
+            if (loggedInUser.getRole().equals("Admin")) {
+                new AdminDashboard(loggedInUser).setVisible(true);
+            } else if (loggedInUser.getRole().equals("Organizer")) {
                 new OrganizerDashboard(loggedInUser).setVisible(true); 
             } else {
-                new DashboardWindow(loggedInUser).setVisible(true); 
+                new DashboardWindow(loggedInUser).setVisible(true); // Student View
             }
-            
         } else {
-            // Failed login
-            JOptionPane.showMessageDialog(this, "Invalid email or password. Please try again.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Invalid email or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
         }
     } 
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                new LoginWindow().setVisible(true);
-            }
-        });
+        SwingUtilities.invokeLater(() -> new LoginWindow().setVisible(true));
     }
 }

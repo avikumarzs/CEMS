@@ -2,7 +2,6 @@ package ui;
 
 import dao.EventDAO;
 import models.User;
-
 import javax.swing.*;
 import java.awt.*;
 import java.sql.Date;
@@ -10,12 +9,11 @@ import java.sql.Date;
 public class AddEventWindow extends JFrame {
     
     public AddEventWindow(User currentUser) {
-        setTitle("Create New Event");
+        setTitle("Propose New Event");
         setSize(400, 300);
-        setLocationRelativeTo(null); // Center on screen
-        setLayout(new GridLayout(6, 2, 10, 10)); // Grid layout for neat rows
+        setLocationRelativeTo(null); 
+        setLayout(new GridLayout(6, 2, 10, 10)); 
 
-        // Labels and Text Fields
         add(new JLabel("  Event ID (e.g., E011):"));
         JTextField idField = new JTextField();
         add(idField);
@@ -32,37 +30,32 @@ public class AddEventWindow extends JFrame {
         JTextField venueField = new JTextField();
         add(venueField);
 
-        // Empty space for layout formatting
         add(new JLabel("")); 
 
-        // Save Button
-        JButton saveBtn = new JButton("Save Event");
-        saveBtn.setBackground(new Color(34, 139, 34)); // Nice green color
+        JButton saveBtn = new JButton("Submit Proposal");
+        saveBtn.setBackground(new Color(34, 139, 34)); 
         saveBtn.setForeground(Color.WHITE);
         add(saveBtn);
 
-        // What happens when we click Save?
         saveBtn.addActionListener(e -> {
             try {
-                // Grab the text from the form
                 String id = idField.getText();
                 String title = titleField.getText();
-                Date date = Date.valueOf(dateField.getText()); // Converts string to SQL Date format
+                Date date = Date.valueOf(dateField.getText());
                 String venueId = venueField.getText();
+                String status = "Pending"; // Hardcoded for approval workflow
                 
-                // Send it to our DAO!
                 EventDAO dao = new EventDAO();
-                boolean success = dao.insertEvent(id, title, date, venueId, currentUser.getUserId());
+                boolean success = dao.insertEvent(id, title, date, venueId, currentUser.getUserId(), status);
                 
                 if (success) {
-                    JOptionPane.showMessageDialog(this, "Event Added Successfully!");
-                    this.dispose(); // Close this form window
+                    JOptionPane.showMessageDialog(this, "Event Proposed! Waiting for Admin approval.");
+                    this.dispose(); 
                 } else {
-                    JOptionPane.showMessageDialog(this, "Database Error! Check VS Code terminal.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Database Error!", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (IllegalArgumentException ex) {
-                // Catches typing "April 12" instead of "2026-04-12"
-                JOptionPane.showMessageDialog(this, "Invalid Date Format! Please use YYYY-MM-DD.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Invalid Date Format! Use YYYY-MM-DD.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
     }
