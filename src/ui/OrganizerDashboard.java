@@ -24,9 +24,7 @@ public class OrganizerDashboard extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // ==========================================
-        // 1. THE SIDEBAR
-        // ==========================================
+        // --- SIDEBAR ---
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BorderLayout());
         sidebar.setBackground(new Color(33, 37, 41)); 
@@ -35,19 +33,15 @@ public class OrganizerDashboard extends JFrame {
 
         JPanel brandingPanel = new JPanel(new GridLayout(3, 1, 5, 5));
         brandingPanel.setOpaque(false);
-        
         JLabel brandLabel = new JLabel("CEMS Organizer", SwingConstants.CENTER);
         brandLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
         brandLabel.setForeground(Color.WHITE);
-        
         JLabel userLabel = new JLabel("Logged in as:", SwingConstants.CENTER);
         userLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
         userLabel.setForeground(new Color(173, 181, 189));
-        
         JLabel nameLabel = new JLabel(user.getName(), SwingConstants.CENTER);
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
         nameLabel.setForeground(new Color(74, 191, 164));
-
         brandingPanel.add(brandLabel);
         brandingPanel.add(userLabel);
         brandingPanel.add(nameLabel);
@@ -56,11 +50,9 @@ public class OrganizerDashboard extends JFrame {
         JPanel navPanel = new JPanel(new GridLayout(5, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
-
         JButton proposeBtn = createSidebarButton("Propose Event", new Color(0, 102, 204));
         JButton cancelBtn = createSidebarButton("Cancel Event", new Color(220, 53, 69));
         JButton refreshBtn = createSidebarButton("Refresh List", new Color(108, 117, 125));
-        
         navPanel.add(proposeBtn);
         navPanel.add(cancelBtn);
         navPanel.add(refreshBtn);
@@ -68,16 +60,12 @@ public class OrganizerDashboard extends JFrame {
 
         JButton logoutBtn = createSidebarButton("Log Out", new Color(220, 53, 69));
         sidebar.add(logoutBtn, BorderLayout.SOUTH);
-
         add(sidebar, BorderLayout.WEST);
 
-        // ==========================================
-        // 2. THE MAIN CONTENT AREA
-        // ==========================================
+        // --- MAIN CONTENT ---
         JPanel mainContent = new JPanel(new BorderLayout());
         mainContent.setBackground(new Color(248, 249, 250)); 
         mainContent.setBorder(new EmptyBorder(25, 40, 40, 40)); 
-
         JLabel title = new JLabel("My Proposed Events");
         title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(new Color(33, 37, 41));
@@ -87,33 +75,27 @@ public class OrganizerDashboard extends JFrame {
         String[] cols = {"Event ID", "Title", "Date", "Status", "Registrations", "Venue"};
         tableModel = new DefaultTableModel(cols, 0);
         eventTable = new JTable(tableModel);
-        
-        // Apply Premium Styling
         styleTable(eventTable);
-        
         JScrollPane scrollPane = new JScrollPane(eventTable);
         scrollPane.getViewport().setBackground(Color.WHITE);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(233, 236, 239)));
         mainContent.add(scrollPane, BorderLayout.CENTER);
-
         add(mainContent, BorderLayout.CENTER);
 
-        // ==========================================
-        // 3. BUTTON ACTIONS
-        // ==========================================
+        // --- ACTIONS ---
         refreshBtn.addActionListener(e -> loadMyEvents());
-        proposeBtn.addActionListener(e -> new AddEventWindow(currentUser).setVisible(true));
+        
+        // FIXED LINE: Passes 'this' to the child window
+        proposeBtn.addActionListener(e -> new AddEventWindow(currentUser, this).setVisible(true));
         
         cancelBtn.addActionListener(e -> {
             int row = eventTable.getSelectedRow();
             if (row == -1) {
-                JOptionPane.showMessageDialog(this, "Select an event to cancel!", "Warning", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Select an event to cancel!");
                 return;
             }
             String id = (String) tableModel.getValueAt(row, 0);
-            if (JOptionPane.showConfirmDialog(this, "Cancel event permanently?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            if (JOptionPane.showConfirmDialog(this, "Cancel event?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 if (new EventDAO().deleteEvent(id)) {
-                    JOptionPane.showMessageDialog(this, "Event Cancelled!");
                     loadMyEvents();
                 }
             }
@@ -146,13 +128,9 @@ public class OrganizerDashboard extends JFrame {
         table.setSelectionBackground(new Color(226, 240, 253)); 
         table.setSelectionForeground(new Color(33, 37, 41));
         table.setDefaultEditor(Object.class, null); 
-
         table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 15));
         table.getTableHeader().setBackground(new Color(241, 243, 245));
-        table.getTableHeader().setForeground(new Color(73, 80, 87));
         table.getTableHeader().setPreferredSize(new Dimension(0, 50)); 
-        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(206, 212, 218)));
-
         DefaultTableCellRenderer paddedRenderer = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -161,21 +139,13 @@ public class OrganizerDashboard extends JFrame {
                 return c;
             }
         };
-
         for (int i = 0; i < table.getColumnCount(); i++) {
             table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
         }
-
-        // 6 Columns Proportions
-        table.getColumnModel().getColumn(0).setPreferredWidth(100); 
-        table.getColumnModel().getColumn(1).setPreferredWidth(350); 
-        table.getColumnModel().getColumn(2).setPreferredWidth(150); 
-        table.getColumnModel().getColumn(3).setPreferredWidth(120); 
-        table.getColumnModel().getColumn(4).setPreferredWidth(120); 
-        table.getColumnModel().getColumn(5).setPreferredWidth(200); 
     }
 
-    private void loadMyEvents() {
+    // Public so the child window can trigger it
+    public void loadMyEvents() {
         tableModel.setRowCount(0); 
         List<Event> events = new EventDAO().getEventsByOrganizer(currentUser.getUserId());
         for (Event ev : events) {

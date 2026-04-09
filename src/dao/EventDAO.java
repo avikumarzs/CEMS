@@ -157,4 +157,19 @@ public class EventDAO {
             return false; 
         }
     }
+    // 7. Reject an Event (Admin only - sets status to 'Rejected')
+    public boolean rejectEvent(String eventId) {
+        String query = "UPDATE Event SET Status = 'Rejected' WHERE Event_ID = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            
+            stmt.setString(1, eventId);
+            return stmt.executeUpdate() > 0;
+            
+        } catch (Exception e) { 
+            e.printStackTrace(); 
+            return false; 
+        }
+    }
 }

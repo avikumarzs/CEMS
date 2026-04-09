@@ -17,13 +17,13 @@ public class AdminDashboard extends JFrame {
 
     public AdminDashboard(User user) {
         setTitle("Admin Portal - " + user.getName());
-        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setExtendedState(JFrame.MAXIMIZED_BOTH); // Maximized from start
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
         // ==========================================
-        // 1. THE SIDEBAR
+        // 1. THE SIDEBAR (Dark Theme)
         // ==========================================
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BorderLayout());
@@ -31,6 +31,7 @@ public class AdminDashboard extends JFrame {
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.setBorder(new EmptyBorder(20, 15, 20, 15));
 
+        // Branding
         JPanel brandingPanel = new JPanel(new GridLayout(3, 1, 5, 5));
         brandingPanel.setOpaque(false);
         
@@ -51,16 +52,24 @@ public class AdminDashboard extends JFrame {
         brandingPanel.add(nameLabel);
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
-        JPanel navPanel = new JPanel(new GridLayout(5, 1, 0, 15));
+        // Navigation Buttons
+        JPanel navPanel = new JPanel(new GridLayout(6, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
 
         JButton approveBtn = createSidebarButton("Approve Event", new Color(40, 167, 69));
+        
+        // --- NEW REJECT BUTTON ---
+        JButton rejectBtn = createSidebarButton("Reject Event", new Color(255, 152, 0)); // Amber/Orange
+        
         JButton refreshBtn = createSidebarButton("Refresh Queue", new Color(0, 102, 204));
+        
         navPanel.add(approveBtn);
+        navPanel.add(rejectBtn); // Added to nav
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
+        // Sidebar Bottom: Log Out
         JButton logoutBtn = createSidebarButton("Log Out", new Color(220, 53, 69));
         sidebar.add(logoutBtn, BorderLayout.SOUTH);
 
@@ -83,7 +92,6 @@ public class AdminDashboard extends JFrame {
         tableModel = new DefaultTableModel(cols, 0);
         pendingTable = new JTable(tableModel);
         
-        // Apply Premium Styling
         styleTable(pendingTable);
         
         JScrollPane scrollPane = new JScrollPane(pendingTable);
@@ -94,10 +102,12 @@ public class AdminDashboard extends JFrame {
         add(mainContent, BorderLayout.CENTER);
 
         // ==========================================
-        // 3. ACTIONS
+        // 3. BUTTON ACTIONS
         // ==========================================
+        
         refreshBtn.addActionListener(e -> loadPendingEvents());
 
+        // APPROVE ACTION
         approveBtn.addActionListener(e -> {
             int row = pendingTable.getSelectedRow();
             if (row == -1) {
@@ -108,6 +118,26 @@ public class AdminDashboard extends JFrame {
             if (new EventDAO().approveEvent(id)) {
                 JOptionPane.showMessageDialog(this, "Event Approved Successfully!");
                 loadPendingEvents();
+            }
+        });
+
+        // REJECT ACTION
+        rejectBtn.addActionListener(e -> {
+            int row = pendingTable.getSelectedRow();
+            if (row == -1) {
+                JOptionPane.showMessageDialog(this, "Select an event to reject!", "Warning", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            String id = (String) tableModel.getValueAt(row, 0);
+            
+            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to reject this event?", "Confirm Rejection", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (new EventDAO().rejectEvent(id)) {
+                    JOptionPane.showMessageDialog(this, "Event Rejected.");
+                    loadPendingEvents();
+                } else {
+                    JOptionPane.showMessageDialog(this, "Error rejecting event.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
         });
 
@@ -158,12 +188,11 @@ public class AdminDashboard extends JFrame {
             table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
         }
 
-        // 5 Columns Proportions
-        table.getColumnModel().getColumn(0).setPreferredWidth(100); // ID
-        table.getColumnModel().getColumn(1).setPreferredWidth(400); // Title
-        table.getColumnModel().getColumn(2).setPreferredWidth(150); // Date
-        table.getColumnModel().getColumn(3).setPreferredWidth(150); // Status
-        table.getColumnModel().getColumn(4).setPreferredWidth(250); // Venue
+        table.getColumnModel().getColumn(0).setPreferredWidth(100); 
+        table.getColumnModel().getColumn(1).setPreferredWidth(400); 
+        table.getColumnModel().getColumn(2).setPreferredWidth(150); 
+        table.getColumnModel().getColumn(3).setPreferredWidth(150); 
+        table.getColumnModel().getColumn(4).setPreferredWidth(250); 
     }
 
     private void loadPendingEvents() {
