@@ -2,12 +2,35 @@ package dao;
 
 import utils.DatabaseConnection;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class RegistrationDAO {
 
-    // Method to register a student for an event
-    public boolean registerStudent(String regId, java.sql.Date regDate, String studentId, String eventId) {
+    // 1. THE SECURITY CHECK: Does this student already have a ticket?
+    public boolean isAlreadyRegistered(String studentId, String eventId) {
+        String query = "SELECT COUNT(*) FROM Registration WHERE Student_ID = ? AND Event_ID = ?";
+        
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
+            
+            stmt.setString(1, studentId);
+            stmt.setString(2, eventId);
+            
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0; // Returns true if they are already in the DB
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false; 
+    }
+
+    // 2. THE INSERT: Actually register the student
+    public boolean registerStudent(String regId, Date regDate, String studentId, String eventId) {
         String query = "INSERT INTO Registration (Reg_ID, Reg_Date, Student_ID, Event_ID) VALUES (?, ?, ?, ?)";
         
         try (Connection conn = DatabaseConnection.getConnection();
@@ -18,11 +41,9 @@ public class RegistrationDAO {
             stmt.setString(3, studentId);
             stmt.setString(4, eventId);
             
-            int rowsAffected = stmt.executeUpdate();
-            return rowsAffected > 0;
+            return stmt.executeUpdate() > 0; // Triggers will automatically update Event count!
             
         } catch (Exception e) {
-            System.out.println("Error registering for event:");
             e.printStackTrace();
             return false;
         }

@@ -33,7 +33,6 @@ public class DashboardWindow extends JFrame {
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.setBorder(new EmptyBorder(20, 15, 20, 15));
 
-        // Branding
         JPanel brandingPanel = new JPanel(new GridLayout(3, 1, 5, 5));
         brandingPanel.setOpaque(false);
         
@@ -54,7 +53,6 @@ public class DashboardWindow extends JFrame {
         brandingPanel.add(nameLabel);
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
-        // Navigation Buttons
         JPanel navPanel = new JPanel(new GridLayout(5, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
@@ -66,7 +64,6 @@ public class DashboardWindow extends JFrame {
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
-        // Log Out Button
         JButton logoutBtn = createSidebarButton("Log Out", new Color(220, 53, 69));
         sidebar.add(logoutBtn, BorderLayout.SOUTH);
 
@@ -85,7 +82,6 @@ public class DashboardWindow extends JFrame {
         title.setBorder(new EmptyBorder(0, 0, 20, 0));
         mainContent.add(title, BorderLayout.NORTH);
 
-        // The Table
         String[] columnNames = {"Event ID", "Title", "Date", "Status", "Registrations", "Venue"};
         tableModel = new DefaultTableModel(columnNames, 0);
         eventTable = new JTable(tableModel);
@@ -102,7 +98,7 @@ public class DashboardWindow extends JFrame {
         add(mainContent, BorderLayout.CENTER);
 
         // ==========================================
-        // 3. BUTTON ACTIONS
+        // 3. BUTTON ACTIONS & SECURITY LOGIC
         // ==========================================
         refreshBtn.addActionListener(e -> loadApprovedEvents());
 
@@ -115,13 +111,23 @@ public class DashboardWindow extends JFrame {
 
             String eventId = (String) tableModel.getValueAt(selectedRow, 0);
             String eventTitle = (String) tableModel.getValueAt(selectedRow, 1);
-            String regId = "R" + (int)(Math.random() * 10000);
-            java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
+            
+            RegistrationDAO regDAO = new RegistrationDAO();
+
+            // --- THE NEW SECURITY CHECK ---
+            if (regDAO.isAlreadyRegistered(currentUser.getUserId(), eventId)) {
+                JOptionPane.showMessageDialog(this, "You are already registered for this event!", "Duplicate Registration", JOptionPane.ERROR_MESSAGE);
+                return; // Stop them right here!
+            }
+            // ------------------------------
 
             int confirm = JOptionPane.showConfirmDialog(this, "Register for " + eventTitle + "?", "Confirm", JOptionPane.YES_NO_OPTION);
             
             if (confirm == JOptionPane.YES_OPTION) {
-                if (new RegistrationDAO().registerStudent(regId, today, currentUser.getUserId(), eventId)) {
+                String regId = "R" + (int)(Math.random() * 10000);
+                java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
+
+                if (regDAO.registerStudent(regId, today, currentUser.getUserId(), eventId)) {
                     JOptionPane.showMessageDialog(this, "Successfully Registered!");
                     loadApprovedEvents(); 
                 } else {
