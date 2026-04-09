@@ -5,6 +5,7 @@ import models.Event;
 import models.User;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -18,21 +19,20 @@ public class OrganizerDashboard extends JFrame {
     public OrganizerDashboard(User user) {
         this.currentUser = user;
         setTitle("Organizer Portal - " + currentUser.getName());
-        setSize(900, 600);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
         // ==========================================
-        // 1. THE SIDEBAR (Dark Theme)
+        // 1. THE SIDEBAR
         // ==========================================
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BorderLayout());
-        sidebar.setBackground(new Color(33, 37, 41)); // Dark Slate
+        sidebar.setBackground(new Color(33, 37, 41)); 
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.setBorder(new EmptyBorder(20, 15, 20, 15));
 
-        // Branding
         JPanel brandingPanel = new JPanel(new GridLayout(3, 1, 5, 5));
         brandingPanel.setOpaque(false);
         
@@ -53,7 +53,6 @@ public class OrganizerDashboard extends JFrame {
         brandingPanel.add(nameLabel);
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
-        // Navigation Buttons
         JPanel navPanel = new JPanel(new GridLayout(5, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
@@ -67,37 +66,34 @@ public class OrganizerDashboard extends JFrame {
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
-        // Log Out Button
         JButton logoutBtn = createSidebarButton("Log Out", new Color(220, 53, 69));
         sidebar.add(logoutBtn, BorderLayout.SOUTH);
 
         add(sidebar, BorderLayout.WEST);
 
         // ==========================================
-        // 2. THE MAIN CONTENT AREA (Light Theme)
+        // 2. THE MAIN CONTENT AREA
         // ==========================================
         JPanel mainContent = new JPanel(new BorderLayout());
         mainContent.setBackground(new Color(248, 249, 250)); 
-        mainContent.setBorder(new EmptyBorder(25, 30, 30, 30)); 
+        mainContent.setBorder(new EmptyBorder(25, 40, 40, 40)); 
 
         JLabel title = new JLabel("My Proposed Events");
-        title.setFont(new Font("SansSerif", Font.BOLD, 26));
+        title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(new Color(33, 37, 41));
-        title.setBorder(new EmptyBorder(0, 0, 20, 0));
+        title.setBorder(new EmptyBorder(0, 0, 25, 0));
         mainContent.add(title, BorderLayout.NORTH);
 
-        // The Table
         String[] cols = {"Event ID", "Title", "Date", "Status", "Registrations", "Venue"};
         tableModel = new DefaultTableModel(cols, 0);
         eventTable = new JTable(tableModel);
-        eventTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        eventTable.setRowHeight(30);
-        eventTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
-        eventTable.getTableHeader().setBackground(new Color(233, 236, 239));
-        eventTable.setDefaultEditor(Object.class, null); 
+        
+        // Apply Premium Styling
+        styleTable(eventTable);
         
         JScrollPane scrollPane = new JScrollPane(eventTable);
         scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(233, 236, 239)));
         mainContent.add(scrollPane, BorderLayout.CENTER);
 
         add(mainContent, BorderLayout.CENTER);
@@ -140,6 +136,43 @@ public class OrganizerDashboard extends JFrame {
         btn.setBorderPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(45); 
+        table.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        table.setShowVerticalLines(false); 
+        table.setGridColor(new Color(233, 236, 239));
+        table.setSelectionBackground(new Color(226, 240, 253)); 
+        table.setSelectionForeground(new Color(33, 37, 41));
+        table.setDefaultEditor(Object.class, null); 
+
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 15));
+        table.getTableHeader().setBackground(new Color(241, 243, 245));
+        table.getTableHeader().setForeground(new Color(73, 80, 87));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 50)); 
+        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(206, 212, 218)));
+
+        DefaultTableCellRenderer paddedRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
+                return c;
+            }
+        };
+
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
+        }
+
+        // 6 Columns Proportions
+        table.getColumnModel().getColumn(0).setPreferredWidth(100); 
+        table.getColumnModel().getColumn(1).setPreferredWidth(350); 
+        table.getColumnModel().getColumn(2).setPreferredWidth(150); 
+        table.getColumnModel().getColumn(3).setPreferredWidth(120); 
+        table.getColumnModel().getColumn(4).setPreferredWidth(120); 
+        table.getColumnModel().getColumn(5).setPreferredWidth(200); 
     }
 
     private void loadMyEvents() {

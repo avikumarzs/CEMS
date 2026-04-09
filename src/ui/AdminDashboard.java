@@ -5,6 +5,7 @@ import models.Event;
 import models.User;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -16,21 +17,20 @@ public class AdminDashboard extends JFrame {
 
     public AdminDashboard(User user) {
         setTitle("Admin Portal - " + user.getName());
-        setSize(900, 600); // Made it a bit bigger for the new layout
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
         // ==========================================
-        // 1. THE SIDEBAR (Dark Theme)
+        // 1. THE SIDEBAR
         // ==========================================
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BorderLayout());
-        sidebar.setBackground(new Color(33, 37, 41)); // Dark Slate
+        sidebar.setBackground(new Color(33, 37, 41)); 
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.setBorder(new EmptyBorder(20, 15, 20, 15));
 
-        // Sidebar Top: Branding & User Info
         JPanel brandingPanel = new JPanel(new GridLayout(3, 1, 5, 5));
         brandingPanel.setOpaque(false);
         
@@ -44,14 +44,13 @@ public class AdminDashboard extends JFrame {
         
         JLabel nameLabel = new JLabel(user.getName(), SwingConstants.CENTER);
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        nameLabel.setForeground(new Color(74, 191, 164)); // Mint Green accent
+        nameLabel.setForeground(new Color(74, 191, 164));
 
         brandingPanel.add(brandLabel);
         brandingPanel.add(userLabel);
         brandingPanel.add(nameLabel);
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
-        // Sidebar Middle: Navigation Buttons
         JPanel navPanel = new JPanel(new GridLayout(5, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
@@ -62,43 +61,40 @@ public class AdminDashboard extends JFrame {
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
-        // Sidebar Bottom: Log Out (Red)
         JButton logoutBtn = createSidebarButton("Log Out", new Color(220, 53, 69));
         sidebar.add(logoutBtn, BorderLayout.SOUTH);
 
         add(sidebar, BorderLayout.WEST);
 
         // ==========================================
-        // 2. THE MAIN CONTENT AREA (Light Theme)
+        // 2. THE MAIN CONTENT AREA
         // ==========================================
         JPanel mainContent = new JPanel(new BorderLayout());
-        mainContent.setBackground(new Color(248, 249, 250)); // Off-white
-        mainContent.setBorder(new EmptyBorder(25, 30, 30, 30)); // Nice padding
+        mainContent.setBackground(new Color(248, 249, 250)); 
+        mainContent.setBorder(new EmptyBorder(25, 40, 40, 40)); 
 
         JLabel title = new JLabel("Pending Event Approvals");
-        title.setFont(new Font("SansSerif", Font.BOLD, 26));
+        title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(new Color(33, 37, 41));
-        title.setBorder(new EmptyBorder(0, 0, 20, 0));
+        title.setBorder(new EmptyBorder(0, 0, 25, 0));
         mainContent.add(title, BorderLayout.NORTH);
 
-        // The Table
         String[] cols = {"Event ID", "Title", "Date", "Status", "Venue"};
         tableModel = new DefaultTableModel(cols, 0);
         pendingTable = new JTable(tableModel);
-        pendingTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        pendingTable.setRowHeight(30);
-        pendingTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
-        pendingTable.getTableHeader().setBackground(new Color(233, 236, 239));
-        pendingTable.setDefaultEditor(Object.class, null); 
+        
+        // Apply Premium Styling
+        styleTable(pendingTable);
         
         JScrollPane scrollPane = new JScrollPane(pendingTable);
         scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(233, 236, 239)));
         mainContent.add(scrollPane, BorderLayout.CENTER);
 
         add(mainContent, BorderLayout.CENTER);
 
         // ==========================================
-        // 3. BUTTON ACTIONS
+        // 3. ACTIONS
         // ==========================================
         refreshBtn.addActionListener(e -> loadPendingEvents());
 
@@ -123,7 +119,6 @@ public class AdminDashboard extends JFrame {
         loadPendingEvents();
     }
 
-    // Helper method to make sleek sidebar buttons
     private JButton createSidebarButton(String text, Color bgColor) {
         JButton btn = new JButton(text);
         btn.setBackground(bgColor);
@@ -133,6 +128,42 @@ public class AdminDashboard extends JFrame {
         btn.setBorderPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(45); 
+        table.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        table.setShowVerticalLines(false); 
+        table.setGridColor(new Color(233, 236, 239));
+        table.setSelectionBackground(new Color(226, 240, 253)); 
+        table.setSelectionForeground(new Color(33, 37, 41));
+        table.setDefaultEditor(Object.class, null); 
+
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 15));
+        table.getTableHeader().setBackground(new Color(241, 243, 245));
+        table.getTableHeader().setForeground(new Color(73, 80, 87));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 50)); 
+        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(206, 212, 218)));
+
+        DefaultTableCellRenderer paddedRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
+                return c;
+            }
+        };
+
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
+        }
+
+        // 5 Columns Proportions
+        table.getColumnModel().getColumn(0).setPreferredWidth(100); // ID
+        table.getColumnModel().getColumn(1).setPreferredWidth(400); // Title
+        table.getColumnModel().getColumn(2).setPreferredWidth(150); // Date
+        table.getColumnModel().getColumn(3).setPreferredWidth(150); // Status
+        table.getColumnModel().getColumn(4).setPreferredWidth(250); // Venue
     }
 
     private void loadPendingEvents() {

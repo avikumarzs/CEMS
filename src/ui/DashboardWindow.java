@@ -6,6 +6,7 @@ import models.Event;
 import models.User;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
@@ -19,13 +20,13 @@ public class DashboardWindow extends JFrame {
     public DashboardWindow(User user) {
         this.currentUser = user;
         setTitle("Student Dashboard - " + currentUser.getName());
-        setSize(900, 600);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
         // ==========================================
-        // 1. THE SIDEBAR (Dark Theme)
+        // 1. THE SIDEBAR
         // ==========================================
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BorderLayout());
@@ -70,35 +71,34 @@ public class DashboardWindow extends JFrame {
         add(sidebar, BorderLayout.WEST);
 
         // ==========================================
-        // 2. THE MAIN CONTENT AREA (Light Theme)
+        // 2. THE MAIN CONTENT AREA
         // ==========================================
         JPanel mainContent = new JPanel(new BorderLayout());
         mainContent.setBackground(new Color(248, 249, 250)); 
-        mainContent.setBorder(new EmptyBorder(25, 30, 30, 30)); 
+        mainContent.setBorder(new EmptyBorder(25, 40, 40, 40)); 
 
         JLabel title = new JLabel("Available Campus Events");
-        title.setFont(new Font("SansSerif", Font.BOLD, 26));
+        title.setFont(new Font("SansSerif", Font.BOLD, 28));
         title.setForeground(new Color(33, 37, 41));
-        title.setBorder(new EmptyBorder(0, 0, 20, 0));
+        title.setBorder(new EmptyBorder(0, 0, 25, 0));
         mainContent.add(title, BorderLayout.NORTH);
 
         String[] columnNames = {"Event ID", "Title", "Date", "Status", "Registrations", "Venue"};
         tableModel = new DefaultTableModel(columnNames, 0);
         eventTable = new JTable(tableModel);
-        eventTable.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        eventTable.setRowHeight(30);
-        eventTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 14));
-        eventTable.getTableHeader().setBackground(new Color(233, 236, 239));
-        eventTable.setDefaultEditor(Object.class, null); 
+        
+        // Apply the new premium styling to the table
+        styleTable(eventTable);
         
         JScrollPane scrollPane = new JScrollPane(eventTable);
         scrollPane.getViewport().setBackground(Color.WHITE);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(233, 236, 239)));
         mainContent.add(scrollPane, BorderLayout.CENTER);
 
         add(mainContent, BorderLayout.CENTER);
 
         // ==========================================
-        // 3. BUTTON ACTIONS & SECURITY LOGIC
+        // 3. BUTTON ACTIONS & LOGIC
         // ==========================================
         refreshBtn.addActionListener(e -> loadApprovedEvents());
 
@@ -111,18 +111,14 @@ public class DashboardWindow extends JFrame {
 
             String eventId = (String) tableModel.getValueAt(selectedRow, 0);
             String eventTitle = (String) tableModel.getValueAt(selectedRow, 1);
-            
             RegistrationDAO regDAO = new RegistrationDAO();
 
-            // --- THE NEW SECURITY CHECK ---
             if (regDAO.isAlreadyRegistered(currentUser.getUserId(), eventId)) {
                 JOptionPane.showMessageDialog(this, "You are already registered for this event!", "Duplicate Registration", JOptionPane.ERROR_MESSAGE);
-                return; // Stop them right here!
+                return; 
             }
-            // ------------------------------
 
             int confirm = JOptionPane.showConfirmDialog(this, "Register for " + eventTitle + "?", "Confirm", JOptionPane.YES_NO_OPTION);
-            
             if (confirm == JOptionPane.YES_OPTION) {
                 String regId = "R" + (int)(Math.random() * 10000);
                 java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
@@ -155,10 +151,49 @@ public class DashboardWindow extends JFrame {
         return btn;
     }
 
+    // --- THE NEW TABLE STYLING MAGIC ---
+    private void styleTable(JTable table) {
+        table.setRowHeight(45); // Massive breathing room
+        table.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        table.setShowVerticalLines(false); // Clean web-look
+        table.setGridColor(new Color(233, 236, 239));
+        table.setSelectionBackground(new Color(226, 240, 253)); // Soft blue highlight
+        table.setSelectionForeground(new Color(33, 37, 41));
+        table.setDefaultEditor(Object.class, null); // Make read-only
+
+        // Header Styling
+        table.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 15));
+        table.getTableHeader().setBackground(new Color(241, 243, 245));
+        table.getTableHeader().setForeground(new Color(73, 80, 87));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 50)); // Taller header
+        table.getTableHeader().setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, new Color(206, 212, 218)));
+
+        // Padding Renderer (Pushes text away from cell walls)
+        DefaultTableCellRenderer paddedRenderer = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15));
+                return c;
+            }
+        };
+
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
+        }
+
+        // Perfect Column Proportions
+        table.getColumnModel().getColumn(0).setPreferredWidth(100); // ID
+        table.getColumnModel().getColumn(1).setPreferredWidth(350); // Title
+        table.getColumnModel().getColumn(2).setPreferredWidth(150); // Date
+        table.getColumnModel().getColumn(3).setPreferredWidth(120); // Status
+        table.getColumnModel().getColumn(4).setPreferredWidth(120); // Registrations
+        table.getColumnModel().getColumn(5).setPreferredWidth(200); // Venue
+    }
+
     private void loadApprovedEvents() {
         tableModel.setRowCount(0); 
         List<Event> events = new EventDAO().getApprovedEvents();
-        
         for (Event ev : events) {
             tableModel.addRow(new Object[]{ev.getEventId(), ev.getTitle(), ev.getEventDate(), ev.getStatus(), ev.getCurrentRegistrations(), ev.getVenueId()});
         }
