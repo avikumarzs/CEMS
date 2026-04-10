@@ -73,16 +73,27 @@ public class AddEventWindow extends JFrame {
         add(formPanel, BorderLayout.CENTER);
 
         // --- FOOTER ---
+        // --- UPDATED FOOTER ---
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         footer.setBackground(Color.WHITE);
         footer.setBorder(new EmptyBorder(0, 0, 30, 40));
+
         JButton cancelBtn = new JButton("Cancel");
         cancelBtn.setPreferredSize(new Dimension(100, 35));
+        
         JButton submitBtn = new JButton("Submit Proposal");
         submitBtn.setPreferredSize(new Dimension(160, 35));
-        submitBtn.setBackground(new Color(204, 53, 69));
+        
+        // THE FIX: These 3 lines guarantee the color shows up
+        submitBtn.setBackground(new Color(0, 53, 69)); // Your custom dark teal
+        submitBtn.setOpaque(true); 
+        submitBtn.setContentAreaFilled(true); 
+        
         submitBtn.setForeground(Color.WHITE);
         submitBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
+        submitBtn.setFocusPainted(false); // Removes the tiny dotted box when clicked
+        submitBtn.setBorderPainted(false); // Makes it look flat and modern
+
         footer.add(cancelBtn);
         footer.add(submitBtn);
         add(footer, BorderLayout.SOUTH);
