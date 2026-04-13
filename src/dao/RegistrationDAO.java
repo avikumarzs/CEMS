@@ -48,4 +48,21 @@ public class RegistrationDAO {
             return false;
         }
     }
+    // --- NEW: Cancel a registration ---
+    public boolean unregisterStudent(String studentId, String eventId) {
+        String query = "DELETE FROM Registration WHERE Student_ID = ? AND Event_ID = ?";
+        
+        try (java.sql.Connection conn = utils.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(query)) {
+            
+            stmt.setString(1, studentId);
+            stmt.setString(2, eventId);
+            
+            return stmt.executeUpdate() > 0; // Triggers should auto-decrement the event count!
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

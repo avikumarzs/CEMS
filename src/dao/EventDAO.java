@@ -172,4 +172,29 @@ public class EventDAO {
             return false; 
         }
     }
+    // --- NEW: Get events a specific student is registered for ---
+    public List<Event> getEventsRegisteredByStudent(String studentId) {
+        List<Event> list = new ArrayList<>();
+        // Joins the Event and Registration tables together
+        String query = "SELECT e.* FROM Event e JOIN Registration r ON e.Event_ID = r.Event_ID WHERE r.Student_ID = ?";
+        
+        try (java.sql.Connection conn = utils.DatabaseConnection.getConnection();
+             java.sql.PreparedStatement stmt = conn.prepareStatement(query)) {
+            
+            stmt.setString(1, studentId);
+            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new Event(
+                        rs.getString("Event_ID"), rs.getString("Title"),
+                        rs.getDate("Event_Date"), rs.getString("Venue_ID"),
+                        rs.getString("Organizer_ID"), rs.getString("Status"),
+                        rs.getInt("Current_Registrations")
+                    ));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
 }
