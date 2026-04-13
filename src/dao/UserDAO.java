@@ -47,4 +47,34 @@ public class UserDAO {
         // Returns the User object if successful, or null if login failed
         return loggedInUser;
     }
+    // --- NEW: Register a New User ---
+    public boolean registerUser(String userId, String name, String email, String password, String role) {
+        // We check if the email already exists first to prevent crashes
+        String checkQuery = "SELECT COUNT(*) FROM User WHERE Email = ?";
+        String insertQuery = "INSERT INTO User (User_ID, Name, Email, Password, Role, Dept_ID) VALUES (?, ?, ?, ?, ?, NULL)";
+
+        try (Connection conn = utils.DatabaseConnection.getConnection()) {
+            // 1. Check for duplicate email
+            try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery)) {
+                checkStmt.setString(1, email);
+                ResultSet rs = checkStmt.executeQuery();
+                if (rs.next() && rs.getInt(1) > 0) {
+                    return false; // Email already exists!
+                }
+            }
+
+            // 2. Insert new user
+            try (PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
+                insertStmt.setString(1, userId);
+                insertStmt.setString(2, name);
+                insertStmt.setString(3, email);
+                insertStmt.setString(4, password);
+                insertStmt.setString(5, role);
+                return insertStmt.executeUpdate() > 0;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

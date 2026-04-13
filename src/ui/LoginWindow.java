@@ -3,10 +3,9 @@ package ui;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.Objects;
 import dao.UserDAO;
 import models.User;
 
@@ -14,174 +13,198 @@ public class LoginWindow extends JFrame {
 
     private JTextField emailField;
     private JPasswordField passwordField;
-    private JButton loginButton;
+    
+    // Carousel Variables
+    private JLabel carouselLabel;
+    private Timer carouselTimer;
+    private int currentImageIndex = 0;
+    
+    // Updated with correct .jpeg extensions and all 4 images
+    private final String[] imagePaths = {
+        "/assets/img1.jpeg", 
+        "/assets/img2.jpeg", 
+        "/assets/img3.jpeg",
+        "/assets/img4.jpeg"
+    };
 
     public LoginWindow() {
         setTitle("CEMS - System Login");
-        setSize(700, 450); // Wider for the split-screen look
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
         // ==========================================
-        // 1. LEFT PANEL (Dark Brand Panel)
+        // 1. LEFT PANEL (Expanded Carousel)
         // ==========================================
         JPanel brandPanel = new JPanel();
-        brandPanel.setLayout(new BoxLayout(brandPanel, BoxLayout.Y_AXIS));
-        brandPanel.setBackground(new Color(33, 37, 41)); // Dark Slate
-        brandPanel.setPreferredSize(new Dimension(300, 450));
-        brandPanel.setBorder(new EmptyBorder(120, 20, 20, 20));
+        brandPanel.setLayout(new BorderLayout());
+        brandPanel.setBackground(new Color(33, 37, 41));
+        
+        // INCREASED WIDTH to 650 for a stunning visual presence
+        brandPanel.setPreferredSize(new Dimension(650, 0)); 
+
+        carouselLabel = new JLabel();
+        carouselLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        
+        JPanel overlayPanel = new JPanel();
+        overlayPanel.setLayout(new BoxLayout(overlayPanel, BoxLayout.Y_AXIS));
+        overlayPanel.setOpaque(false); 
+        overlayPanel.setBorder(new EmptyBorder(180, 60, 40, 60));
 
         JLabel titleLabel = new JLabel("C E M S");
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 42));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 64)); // Bigger Title
         titleLabel.setForeground(Color.WHITE);
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel subtitleLabel = new JLabel("Campus Event Management");
-        subtitleLabel.setFont(new Font("SansSerif", Font.PLAIN, 16));
-        subtitleLabel.setForeground(new Color(173, 181, 189)); // Light gray
-        subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
-        JLabel versionLabel = new JLabel("Version 1.0");
-        versionLabel.setFont(new Font("SansSerif", Font.ITALIC, 12));
-        versionLabel.setForeground(new Color(74, 191, 164)); // Mint Green accent
-        versionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JLabel subtitleLabel = new JLabel("Campus Event Management");
+        subtitleLabel.setFont(new Font("SansSerif", Font.PLAIN, 22)); // Bigger Subtitle
+        subtitleLabel.setForeground(new Color(248, 249, 250));
 
-        brandPanel.add(titleLabel);
-        brandPanel.add(Box.createRigidArea(new Dimension(0, 10))); // Spacing
-        brandPanel.add(subtitleLabel);
-        brandPanel.add(Box.createRigidArea(new Dimension(0, 30))); // Spacing
-        brandPanel.add(versionLabel);
+        overlayPanel.add(titleLabel);
+        overlayPanel.add(Box.createRigidArea(new Dimension(0, 15)));
+        overlayPanel.add(subtitleLabel);
 
+        JLayeredPane layers = new JLayeredPane();
+        layers.setLayout(new OverlayLayout(layers));
+        layers.add(overlayPanel, JLayeredPane.PALETTE_LAYER);
+        layers.add(carouselLabel, JLayeredPane.DEFAULT_LAYER);
+
+        brandPanel.add(layers, BorderLayout.CENTER);
         add(brandPanel, BorderLayout.WEST);
 
         // ==========================================
-        // 2. RIGHT PANEL (Clean Form Panel)
+        // 2. RIGHT PANEL (Upgraded Form)
         // ==========================================
-        JPanel formPanel = new JPanel(new GridBagLayout()); // GridBag allows perfect centering
+        JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(10, 30, 10, 30); // Padding around elements
+        gbc.insets = new Insets(10, 50, 10, 50);
 
-        // Sign In Header
         JLabel signInLabel = new JLabel("Sign In");
-        signInLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
-        signInLabel.setForeground(new Color(33, 37, 41));
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2;
-        gbc.insets = new Insets(10, 30, 30, 30); // Extra bottom padding
+        signInLabel.setFont(new Font("SansSerif", Font.BOLD, 36)); // Larger Header
+        gbc.gridy = 0; gbc.gridwidth = 2; gbc.insets = new Insets(10, 50, 40, 50);
         formPanel.add(signInLabel, gbc);
 
-        // Reset insets for the form fields
-        gbc.insets = new Insets(5, 30, 5, 30); 
-        gbc.gridwidth = 1;
-
-        // Email Field
-        JLabel emailLabel = new JLabel("Email Address");
-        emailLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-        emailLabel.setForeground(Color.GRAY);
-        gbc.gridy = 1;
-        formPanel.add(emailLabel, gbc);
-
-        emailField = new JTextField(20);
-        styleTextField(emailField);
-        gbc.gridy = 2;
-        formPanel.add(emailField, gbc);
-
-        // Password Field
-        JLabel passwordLabel = new JLabel("Password");
-        passwordLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-        passwordLabel.setForeground(Color.GRAY);
-        gbc.gridy = 3;
-        gbc.insets = new Insets(15, 30, 5, 30); // Extra top padding
-        formPanel.add(passwordLabel, gbc);
-
-        passwordField = new JPasswordField(20);
-        styleTextField(passwordField);
-        gbc.gridy = 4;
-        gbc.insets = new Insets(5, 30, 25, 30); // Extra bottom padding before button
-        formPanel.add(passwordField, gbc);
-
-        // Login Button
-        loginButton = new JButton("Secure Login");
-        loginButton.setFont(new Font("SansSerif", Font.BOLD, 14));
-        loginButton.setBackground(new Color(0, 102, 204)); // Brand Blue
-        loginButton.setForeground(Color.WHITE);
-        loginButton.setFocusPainted(false);
-        loginButton.setBorderPainted(false);
-        loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        loginButton.setPreferredSize(new Dimension(loginButton.getPreferredSize().width, 40)); // Make it taller
+        gbc.gridwidth = 1; gbc.insets = new Insets(5, 50, 5, 50);
         
-        gbc.gridy = 5;
-        formPanel.add(loginButton, gbc);
+        // Premium Email Field
+        JLabel emailLbl = new JLabel("Email Address");
+        emailLbl.setFont(new Font("SansSerif", Font.BOLD, 14));
+        emailLbl.setForeground(Color.GRAY);
+        gbc.gridy = 1; formPanel.add(emailLbl, gbc);
+        
+        emailField = new JTextField();
+        styleField(emailField);
+        gbc.gridy = 2; formPanel.add(emailField, gbc);
+
+        // Premium Password Field
+        JLabel passLbl = new JLabel("Password");
+        passLbl.setFont(new Font("SansSerif", Font.BOLD, 14));
+        passLbl.setForeground(Color.GRAY);
+        gbc.gridy = 3; gbc.insets = new Insets(20, 50, 5, 50); // Extra top space
+        formPanel.add(passLbl, gbc);
+        
+        passwordField = new JPasswordField();
+        styleField(passwordField);
+        gbc.gridy = 4; formPanel.add(passwordField, gbc);
+
+        // --- UPGRADED BUTTON ---
+        JButton loginBtn = new JButton("Secure Login");
+        stylePremiumButton(loginBtn, new Color(0, 53, 69), new Color(0, 85, 110)); // Navy with lighter hover
+        
+        gbc.gridy = 5; gbc.insets = new Insets(40, 50, 10, 50);
+        formPanel.add(loginBtn, gbc);
+
+        // Signup Link
+        JButton signupLink = new JButton("Don't have an account? Create one");
+        signupLink.setContentAreaFilled(false);
+        signupLink.setBorderPainted(false);
+        signupLink.setForeground(new Color(0, 102, 204));
+        signupLink.setFont(new Font("SansSerif", Font.BOLD, 14));
+        signupLink.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        gbc.gridy = 6; formPanel.add(signupLink, gbc);
 
         add(formPanel, BorderLayout.CENTER);
 
         // ==========================================
-        // 3. ACTIONS & LOGIC
+        // 3. CAROUSEL TIMER & ACTIONS
         // ==========================================
-        loginButton.addActionListener(e -> handleLoginClick());
+        
+        startCarousel();
 
-        // QoL: Pressing 'Enter' in the password field clicks the login button
-        passwordField.addKeyListener(new KeyAdapter() {
-            @Override
-            public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    handleLoginClick();
-                }
-            }
+        // QoL: Pressing 'Enter' triggers login
+        passwordField.addActionListener(e -> handleLogin());
+        loginBtn.addActionListener(e -> handleLogin());
+        
+        signupLink.addActionListener(e -> {
+            this.dispose();
+            new SignupWindow().setVisible(true);
         });
     }
 
-    // Helper method to style text inputs like a modern web app
-    private void styleTextField(JTextField field) {
-        field.setPreferredSize(new Dimension(250, 35));
-        field.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        // Adds a subtle gray border with nice internal padding
+    private void startCarousel() {
+        updateCarouselImage();
+        carouselTimer = new Timer(4000, e -> {
+            currentImageIndex = (currentImageIndex + 1) % imagePaths.length;
+            updateCarouselImage();
+        });
+        carouselTimer.start();
+    }
+
+    private void updateCarouselImage() {
+        try {
+            ImageIcon rawIcon = new ImageIcon(Objects.requireNonNull(getClass().getResource(imagePaths[currentImageIndex])));
+            Image img = rawIcon.getImage();
+            
+            // INCREASED SCALING WIDTH to match the new 650px panel
+            Image scaledImg = img.getScaledInstance(650, 1080, Image.SCALE_SMOOTH); 
+            
+            carouselLabel.setIcon(new ImageIcon(scaledImg));
+        } catch (Exception e) {
+            System.out.println("Could not load image: " + imagePaths[currentImageIndex]);
+            carouselLabel.setBackground(new Color(33, 37, 41));
+            carouselLabel.setOpaque(true);
+        }
+    }
+
+    // --- NEW: Premium Field Styling ---
+    private void styleField(JTextField field) {
+        field.setPreferredSize(new Dimension(380, 50)); // Much wider and taller
+        field.setFont(new Font("SansSerif", Font.PLAIN, 16)); // Larger text
         field.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(206, 212, 218)), 
-            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+            BorderFactory.createEmptyBorder(5, 15, 5, 15) // Deep internal padding
         ));
     }
 
-    private void handleLoginClick() {
-        String email = emailField.getText().trim();
-        String password = new String(passwordField.getPassword());
+    // --- NEW: Premium Button Styling with Hover ---
+    private void stylePremiumButton(JButton btn, Color primaryColor, Color hoverColor) {
+        btn.setPreferredSize(new Dimension(0, 55)); // Massive click target
+        btn.setBackground(primaryColor);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("SansSerif", Font.BOLD, 16));
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setOpaque(true);
+        btn.setContentAreaFilled(true);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        if (email.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter both email and password.", "Warning", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        btn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { btn.setBackground(hoverColor); }
+            public void mouseExited(MouseEvent e) { btn.setBackground(primaryColor); }
+        });
+    }
 
-        UserDAO userDAO = new UserDAO();
-        User loggedInUser = userDAO.authenticateUser(email, password);
-
+    private void handleLogin() {
+        User loggedInUser = new UserDAO().authenticateUser(emailField.getText(), new String(passwordField.getPassword()));
         if (loggedInUser != null) {
-            this.dispose(); 
-            
-            // ROUTING LOGIC
-            if (loggedInUser.getRole().equals("Admin")) {
-                new AdminDashboard(loggedInUser).setVisible(true);
-            } else if (loggedInUser.getRole().equals("Organizer")) {
-                new OrganizerDashboard(loggedInUser).setVisible(true); 
-            } else {
-                new DashboardWindow(loggedInUser).setVisible(true); // Student View
-            }
+            this.dispose();
+            if (loggedInUser.getRole().equals("Admin")) new AdminDashboard(loggedInUser).setVisible(true);
+            else if (loggedInUser.getRole().equals("Organizer")) new OrganizerDashboard(loggedInUser).setVisible(true);
+            else new DashboardWindow(loggedInUser).setVisible(true);
         } else {
-            JOptionPane.showMessageDialog(this, "Invalid email or password.", "Login Failed", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Invalid Credentials", "Login Failed", JOptionPane.ERROR_MESSAGE);
         }
-    } 
-
-    public static void main(String[] args) {
-        // Set system look and feel for smoother window rendering
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        
-        SwingUtilities.invokeLater(() -> new LoginWindow().setVisible(true));
     }
 }
