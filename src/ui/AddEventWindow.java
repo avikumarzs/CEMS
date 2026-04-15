@@ -1,6 +1,7 @@
 package ui;
 
 import dao.EventDAO;
+import dao.VenueDAO;
 import models.User;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,15 +11,19 @@ import java.awt.event.MouseEvent;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 
 public class AddEventWindow extends JFrame {
     
     private OrganizerDashboard parentDashboard;
+    private User currentUser;
     
     public AddEventWindow(User currentUser, OrganizerDashboard parent) {
         this.parentDashboard = parent;
+        this.currentUser = currentUser;
+        
         setTitle("CEMS - Create Proposal");
-        setSize(800, 600); // Wider for the split-panel design
+        setSize(800, 650); 
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
@@ -29,7 +34,7 @@ public class AddEventWindow extends JFrame {
         // ==========================================
         JPanel sidebar = new JPanel();
         sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBackground(new Color(33, 37, 41)); // Matches Dashboard Sidebar
+        sidebar.setBackground(new Color(33, 37, 41)); 
         sidebar.setPreferredSize(new Dimension(280, 0));
         sidebar.setBorder(new EmptyBorder(60, 30, 40, 30));
 
@@ -61,22 +66,28 @@ public class AddEventWindow extends JFrame {
         gbc.weightx = 1.0;
 
         // --- SECTION 1: EVENT IDENTITY ---
+        // Header takes up Rows 0 and 1
         addSectionHeader("BASIC INFORMATION", mainContent, gbc, 0);
 
-        JTextField idField = createStyledField("Event ID (e.g., E011)", mainContent, gbc, 1);
-        JTextField titleField = createStyledField("Event Title", mainContent, gbc, 3);
+        // ID Field starts at Row 2 (takes 2 and 3)
+        JTextField idField = createStyledField("Event ID (e.g., E011)", mainContent, gbc, 2); 
+        
+        // Title Field starts at Row 4 (takes 4 and 5)
+        JTextField titleField = createStyledField("Event Title", mainContent, gbc, 4);
 
         // --- SECTION 2: LOGISTICS ---
-        gbc.insets = new Insets(30, 0, 10, 0); // Extra top padding for new section
-        addSectionHeader("DATE & LOCATION", mainContent, gbc, 5);
-        gbc.insets = new Insets(5, 0, 15, 0); // Reset insets
+        gbc.insets = new Insets(30, 0, 10, 0); 
+        // Header takes up Rows 6 and 7
+        addSectionHeader("DATE & LOCATION", mainContent, gbc, 6); 
+        gbc.insets = new Insets(5, 0, 15, 0); 
 
-        // Custom Date Grid
+        // Custom Date Grid - Row 8
         JLabel dateLbl = new JLabel("Scheduled Date");
         dateLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
         dateLbl.setForeground(Color.GRAY);
-        gbc.gridy = 6; mainContent.add(dateLbl, gbc);
+        gbc.gridy = 8; mainContent.add(dateLbl, gbc);
 
+        // Date Dropdowns - Row 9
         JPanel dateGrid = new JPanel(new GridLayout(1, 3, 15, 0));
         dateGrid.setBackground(Color.WHITE);
         String[] years = {"Year", "2026", "2027", "2028", "2029"};
@@ -89,9 +100,19 @@ public class AddEventWindow extends JFrame {
         JComboBox<String> dayBox = createStyledCombo(days);
         dateGrid.add(yearBox); dateGrid.add(monthBox); dateGrid.add(dayBox);
 
-        gbc.gridy = 7; mainContent.add(dateGrid, gbc);
+        gbc.gridy = 9; mainContent.add(dateGrid, gbc);
 
-        JTextField venueField = createStyledField("Venue ID (e.g., V001)", mainContent, gbc, 8);
+        // Venue Label - Row 10
+        JLabel venueLbl = new JLabel("Select Venue");
+        venueLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+        venueLbl.setForeground(Color.GRAY);
+        gbc.gridy = 10; mainContent.add(venueLbl, gbc);
+
+        // Venue Dropdown - Row 11
+        List<String> venueList = new VenueDAO().getAllVenueDisplayNames();
+        JComboBox<String> venueBox = createStyledCombo(venueList.toArray(new String[0]));
+        gbc.gridy = 11; gbc.insets = new Insets(5, 0, 15, 0);
+        mainContent.add(venueBox, gbc);
 
         // ==========================================
         // 3. ACTION FOOTER
@@ -104,7 +125,7 @@ public class AddEventWindow extends JFrame {
         styleSecondaryButton(cancelBtn);
 
         JButton submitBtn = new JButton("Submit Proposal");
-        stylePrimaryButton(submitBtn, new Color(0, 53, 69)); // Navy Blue
+        stylePrimaryButton(submitBtn, new Color(0, 53, 69)); 
 
         footer.add(cancelBtn);
         footer.add(submitBtn);
@@ -115,17 +136,21 @@ public class AddEventWindow extends JFrame {
         add(rightPanel, BorderLayout.CENTER);
 
         // --- LOGIC ---
-
         cancelBtn.addActionListener(e -> this.dispose());
 
         submitBtn.addActionListener(e -> {
             String id = idField.getText().trim();
             String title = titleField.getText().trim();
-            String venueId = venueField.getText().trim();
+            String selectedVenue = (String) venueBox.getSelectedItem();
+            String venueId = "";
+
+            if (selectedVenue != null && selectedVenue.contains(" - ")) {
+                venueId = selectedVenue.split(" - ")[0]; 
+            }
 
             if(id.isEmpty() || title.isEmpty() || venueId.isEmpty() || 
                yearBox.getSelectedIndex() == 0 || monthBox.getSelectedIndex() == 0 || dayBox.getSelectedIndex() == 0) {
-                showToast("Please fill in all details.");
+                showToast("Please fill in all details and select a valid venue.");
                 return;
             }
 
@@ -152,14 +177,12 @@ public class AddEventWindow extends JFrame {
     }
 
     // --- STYLING HELPERS ---
-
     private void addSectionHeader(String text, JPanel container, GridBagConstraints gbc, int row) {
         JLabel label = new JLabel(text);
         label.setFont(new Font("SansSerif", Font.BOLD, 11));
         label.setForeground(new Color(108, 117, 125));
         gbc.gridy = row;
         container.add(label, gbc);
-        
         JSeparator sep = new JSeparator();
         sep.setForeground(new Color(233, 236, 239));
         gbc.gridy = row + 1;
@@ -172,14 +195,10 @@ public class AddEventWindow extends JFrame {
         lbl.setFont(new Font("SansSerif", Font.BOLD, 12));
         lbl.setForeground(Color.GRAY);
         gbc.gridy = row; container.add(lbl, gbc);
-
         JTextField field = new JTextField();
         field.setPreferredSize(new Dimension(0, 42));
         field.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        field.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(222, 226, 230)),
-            BorderFactory.createEmptyBorder(5, 12, 5, 12)
-        ));
+        field.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(new Color(222, 226, 230)), BorderFactory.createEmptyBorder(5, 12, 5, 12)));
         gbc.gridy = row + 1; 
         gbc.insets = new Insets(5, 0, 15, 0);
         container.add(field, gbc);
@@ -204,7 +223,6 @@ public class AddEventWindow extends JFrame {
         btn.setOpaque(true);
         btn.setContentAreaFilled(true);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
         btn.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { btn.setBackground(bg.brighter()); }
             public void mouseExited(MouseEvent e) { btn.setBackground(bg); }

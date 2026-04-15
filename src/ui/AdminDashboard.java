@@ -53,19 +53,23 @@ public class AdminDashboard extends JFrame {
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
         // Navigation Buttons
+        // Increased rows in GridLayout to accommodate the new button nicely
         JPanel navPanel = new JPanel(new GridLayout(6, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
 
         JButton approveBtn = createSidebarButton("Approve Event", new Color(40, 167, 69));
+        JButton rejectBtn = createSidebarButton("Reject Event", new Color(255, 152, 0)); 
         
-        // --- NEW REJECT BUTTON ---
-        JButton rejectBtn = createSidebarButton("Reject Event", new Color(255, 152, 0)); // Amber/Orange
-        
+        // --- NEW: Add Venue Button ---
+        JButton addVenueBtn = createSidebarButton("Add New Venue", new Color(108, 117, 125));
+        // -----------------------------
+
         JButton refreshBtn = createSidebarButton("Refresh Queue", new Color(0, 102, 204));
         
         navPanel.add(approveBtn);
-        navPanel.add(rejectBtn); // Added to nav
+        navPanel.add(rejectBtn); 
+        navPanel.add(addVenueBtn); // Added to layout
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
@@ -106,6 +110,12 @@ public class AdminDashboard extends JFrame {
         // ==========================================
         
         refreshBtn.addActionListener(e -> loadPendingEvents());
+
+        // --- NEW: Open Add Venue Window ---
+        addVenueBtn.addActionListener(e -> {
+            new AddVenueWindow().setVisible(true);
+        });
+        // ----------------------------------
 
         // APPROVE ACTION
         approveBtn.addActionListener(e -> {
