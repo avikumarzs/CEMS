@@ -15,7 +15,7 @@ public class LoginWindow extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainCardPanel;
 
-    // Class fields initialized once
+    // Class fields initialized for persistence across screens
     private JTextField standardEmailField = new JTextField();
     private JPasswordField standardPasswordField = new JPasswordField();
     private JPasswordField profilePasswordField = new JPasswordField();
@@ -26,7 +26,7 @@ public class LoginWindow extends JFrame {
 
     public LoginWindow() {
         setTitle("CEMS - System Login");
-        setSize(650, 700);
+        setSize(650, 700); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
@@ -35,14 +35,14 @@ public class LoginWindow extends JFrame {
         cardLayout = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
 
-        // Pre-initialize panels
+        // All three screens are now defined below
         mainCardPanel.add(createProfileScreen(), "PROFILES");
         mainCardPanel.add(createStandardLoginScreen(), "STANDARD_LOGIN");
         mainCardPanel.add(createPasswordScreen(), "PASSWORD_ENTRY");
 
         add(mainCardPanel, BorderLayout.CENTER);
 
-        // Auto-routing logic
+        // Auto-routing based on saved data
         String savedUsers = prefs.get("saved_users", "");
         if (savedUsers.isEmpty()) {
             cardLayout.show(mainCardPanel, "STANDARD_LOGIN");
@@ -52,7 +52,7 @@ public class LoginWindow extends JFrame {
     }
 
     // ==========================================
-    // SCREEN 1: PROFILE SELECTOR
+    // SCREEN 1: PROFILE SELECTOR (MRU List)
     // ==========================================
     private JPanel createProfileScreen() {
         JPanel panel = new JPanel(new GridBagLayout());
@@ -68,7 +68,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
         panel.add(title, gbc);
 
-        // The Profile Row
         JPanel grid = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         grid.setBackground(Color.WHITE);
 
@@ -135,88 +134,95 @@ public class LoginWindow extends JFrame {
     }
 
     // ==========================================
-    // SCREEN 2: STANDARD LOGIN (FIXED)
+    // SCREEN 2: NEW LOGIN (Standard Form)
     // ==========================================
     private JPanel createStandardLoginScreen() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(30, 80, 30, 80));
+        JPanel outerPanel = new JPanel(new GridBagLayout());
+        outerPanel.setBackground(Color.WHITE);
+        
+        JPanel formContainer = new JPanel(new GridBagLayout());
+        formContainer.setBackground(Color.WHITE);
+        formContainer.setPreferredSize(new Dimension(400, 600)); 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
 
-        addBranding(panel, gbc);
+        addBranding(formContainer, gbc);
 
         JLabel title = new JLabel("Sign In", SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 26));
-        gbc.gridy = 2; gbc.insets = new Insets(0, 0, 30, 0);
-        panel.add(title, gbc);
+        title.setFont(new Font("SansSerif", Font.BOLD, 28));
+        gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
+        formContainer.add(title, gbc);
 
-        // Email Field
+        // Inputs
         JLabel eLbl = new JLabel("Email Address"); eLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
-        gbc.gridy = 3; gbc.insets = new Insets(5, 0, 2, 0); panel.add(eLbl, gbc);
+        gbc.gridy = 3; gbc.insets = new Insets(5, 0, 2, 0); formContainer.add(eLbl, gbc);
         styleField(standardEmailField);
-        gbc.gridy = 4; gbc.insets = new Insets(0, 0, 15, 0); panel.add(standardEmailField, gbc);
+        gbc.gridy = 4; gbc.insets = new Insets(0, 0, 15, 0); formContainer.add(standardEmailField, gbc);
 
-        // Password Field
         JLabel pLbl = new JLabel("Password"); pLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
-        gbc.gridy = 5; gbc.insets = new Insets(5, 0, 2, 0); panel.add(pLbl, gbc);
+        gbc.gridy = 5; gbc.insets = new Insets(5, 0, 2, 0); formContainer.add(pLbl, gbc);
         styleField(standardPasswordField);
-        gbc.gridy = 6; gbc.insets = new Insets(0, 0, 30, 0); panel.add(standardPasswordField, gbc);
+        gbc.gridy = 6; gbc.insets = new Insets(0, 0, 30, 0); formContainer.add(standardPasswordField, gbc);
 
-        JButton loginBtn = new JButton("Sign In");
+        JButton loginBtn = new JButton("Sign In to Account");
         stylePrimaryButton(loginBtn, new Color(0, 102, 204));
-        gbc.gridy = 7; panel.add(loginBtn, gbc);
+        gbc.gridy = 7; formContainer.add(loginBtn, gbc);
 
-        JButton signup = new JButton("Create new account");
-        styleFooterBtn(signup);
-        gbc.gridy = 8; panel.add(signup, gbc);
+        JButton signupLink = new JButton("Don't have an account? Create one");
+        styleFooterBtn(signupLink);
+        gbc.gridy = 8; formContainer.add(signupLink, gbc);
 
-        // Logic
-        loginBtn.addActionListener(e -> {
-            System.out.println("Standard Login Attempt: " + standardEmailField.getText());
-            executeLogin(standardEmailField.getText(), new String(standardPasswordField.getPassword()));
-        });
-        signup.addActionListener(e -> { this.dispose(); new SignupWindow().setVisible(true); });
+        JButton backBtn = new JButton("← Back to saved profiles");
+        styleFooterBtn(backBtn);
+        if (!prefs.get("saved_users", "").isEmpty()) {
+            gbc.gridy = 9; formContainer.add(backBtn, gbc);
+        }
 
-        return panel;
+        loginBtn.addActionListener(e -> executeLogin(standardEmailField.getText(), new String(standardPasswordField.getPassword())));
+        signupLink.addActionListener(e -> { this.dispose(); new SignupWindow().setVisible(true); });
+        backBtn.addActionListener(e -> cardLayout.show(mainCardPanel, "PROFILES"));
+
+        outerPanel.add(formContainer);
+        return outerPanel;
     }
 
     // ==========================================
-    // SCREEN 3: PROFILE PASSWORD (FIXED)
+    // SCREEN 3: PROFILE PASSWORD ENTRY
     // ==========================================
     private JPanel createPasswordScreen() {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(Color.WHITE);
-        panel.setBorder(new EmptyBorder(30, 80, 30, 80));
+        JPanel outerPanel = new JPanel(new GridBagLayout());
+        outerPanel.setBackground(Color.WHITE);
+
+        JPanel formContainer = new JPanel(new GridBagLayout());
+        formContainer.setBackground(Color.WHITE);
+        formContainer.setPreferredSize(new Dimension(400, 600));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
 
-        addBranding(panel, gbc);
+        addBranding(formContainer, gbc);
 
-        profileWelcomeLabel.setFont(new Font("SansSerif", Font.BOLD, 26));
-        gbc.gridy = 2; gbc.insets = new Insets(0, 0, 30, 0);
-        panel.add(profileWelcomeLabel, gbc);
+        profileWelcomeLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
+        gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
+        formContainer.add(profileWelcomeLabel, gbc);
 
         styleField(profilePasswordField);
         gbc.gridy = 4; gbc.insets = new Insets(10, 0, 20, 0);
-        panel.add(profilePasswordField, gbc);
+        formContainer.add(profilePasswordField, gbc);
 
         JButton loginBtn = new JButton("Sign In");
         stylePrimaryButton(loginBtn, new Color(0, 102, 204));
-        gbc.gridy = 5; panel.add(loginBtn, gbc);
+        gbc.gridy = 5; formContainer.add(loginBtn, gbc);
 
         JButton back = new JButton("Not you? Switch account");
         styleFooterBtn(back);
-        gbc.gridy = 6; panel.add(back, gbc);
+        gbc.gridy = 6; formContainer.add(back, gbc);
 
-        loginBtn.addActionListener(e -> {
-            System.out.println("Profile Login Attempt for: " + selectedProfileEmail);
-            executeLogin(selectedProfileEmail, new String(profilePasswordField.getPassword()));
-        });
-        profilePasswordField.addActionListener(e -> loginBtn.doClick()); // Enter key support
+        loginBtn.addActionListener(e -> executeLogin(selectedProfileEmail, new String(profilePasswordField.getPassword())));
+        profilePasswordField.addActionListener(e -> loginBtn.doClick());
         back.addActionListener(e -> cardLayout.show(mainCardPanel, "PROFILES"));
 
-        return panel;
+        outerPanel.add(formContainer);
+        return outerPanel;
     }
 
     // ==========================================
@@ -227,17 +233,14 @@ public class LoginWindow extends JFrame {
             JOptionPane.showMessageDialog(this, "Fields cannot be empty!");
             return;
         }
-        
         User user = new UserDAO().authenticateUser(email, password);
         if (user != null) {
-            System.out.println("Login Success: " + user.getName());
             saveUser(user.getName(), email);
             this.dispose();
             if (user.getRole().equals("Admin")) new AdminDashboard(user).setVisible(true);
             else if (user.getRole().equals("Organizer")) new OrganizerDashboard(user).setVisible(true);
             else new DashboardWindow(user).setVisible(true);
         } else {
-            System.out.println("Login Failed for: " + email);
             JOptionPane.showMessageDialog(this, "Invalid credentials", "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
