@@ -9,13 +9,16 @@ public class SignupWindow extends JFrame {
 
     private JTextField nameField, emailField;
     private JPasswordField passField;
-    private JComboBox<String> roleBox;
-    private JComboBox<String> deptBox; // NEW: Department Dropdown
-    private JLabel deptLabel;          // NEW: Department Label
+    private JComboBox<String> deptBox;
+    private JLabel deptLabel;
+    
+    // --- NEW: State tracking for our toggle switch ---
+    private String selectedRole = "Student"; 
+    private JButton studentToggleBtn, organizerToggleBtn;
 
     public SignupWindow() {
         setTitle("CEMS - Create Account");
-        setSize(650, 800); // Slightly taller to fit the new dropdown
+        setSize(650, 800); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
@@ -55,45 +58,46 @@ public class SignupWindow extends JFrame {
         gbc.gridy = 3; gbc.insets = new Insets(0, 0, 25, 0);
         mainPanel.add(subtitleLabel, gbc);
 
+        // --- NEW: THE ROLE TOGGLE SWITCH ---
+        JPanel togglePanel = new JPanel(new GridLayout(1, 2));
+        togglePanel.setPreferredSize(new Dimension(0, 45));
+        togglePanel.setBackground(Color.WHITE);
+        
+        studentToggleBtn = new JButton("Student Sign-Up");
+        organizerToggleBtn = new JButton("Organizer Sign-Up");
+        
+        // Initial State (Student is active by default)
+        setToggleActive(studentToggleBtn, organizerToggleBtn);
+        
+        togglePanel.add(studentToggleBtn);
+        togglePanel.add(organizerToggleBtn);
+        
+        gbc.gridy = 4; gbc.insets = new Insets(0, 0, 20, 0);
+        mainPanel.add(togglePanel, gbc);
+
         // --- FORM FIELDS ---
-        nameField = createField("Full Name", mainPanel, gbc, 4);
-        emailField = createField("Email Address", mainPanel, gbc, 6);
+        nameField = createField("Full Name", mainPanel, gbc, 5);
+        emailField = createField("Email Address", mainPanel, gbc, 7);
         
         JLabel passLbl = new JLabel("Password");
         passLbl.setFont(new Font("SansSerif", Font.BOLD, 13));
         passLbl.setForeground(Color.GRAY);
-        gbc.gridy = 8; gbc.insets = new Insets(5, 0, 5, 0);
+        gbc.gridy = 9; gbc.insets = new Insets(5, 0, 5, 0);
         mainPanel.add(passLbl, gbc);
         
         passField = new JPasswordField();
         passField.setPreferredSize(new Dimension(0, 45));
         passField.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        gbc.gridy = 9; gbc.insets = new Insets(0, 0, 15, 0);
+        gbc.gridy = 10; gbc.insets = new Insets(0, 0, 15, 0);
         mainPanel.add(passField, gbc);
-
-        // --- ROLE DROPDOWN ---
-        JLabel roleLabel = new JLabel("Register As");
-        roleLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        roleLabel.setForeground(Color.GRAY);
-        gbc.gridy = 10; gbc.insets = new Insets(5, 0, 5, 0);
-        mainPanel.add(roleLabel, gbc);
-
-        // Added Admin to the dropdown list
-        String[] roles = {"Student", "Organizer"};
-        roleBox = new JComboBox<>(roles);
-        roleBox.setPreferredSize(new Dimension(0, 45));
-        roleBox.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        gbc.gridy = 11; gbc.insets = new Insets(0, 0, 15, 0);
-        mainPanel.add(roleBox, gbc);
 
         // --- DEPARTMENT DROPDOWN (Dynamic) ---
         deptLabel = new JLabel("Department");
         deptLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         deptLabel.setForeground(Color.GRAY);
-        gbc.gridy = 12; gbc.insets = new Insets(5, 0, 5, 0);
+        gbc.gridy = 11; gbc.insets = new Insets(5, 0, 5, 0);
         mainPanel.add(deptLabel, gbc);
 
-        // Populating with our pre-fed SQL data
         String[] depts = {
             "CS01 - Computer Science", 
             "IT02 - Information Technology", 
@@ -102,15 +106,8 @@ public class SignupWindow extends JFrame {
         deptBox = new JComboBox<>(depts);
         deptBox.setPreferredSize(new Dimension(0, 45));
         deptBox.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        gbc.gridy = 13; gbc.insets = new Insets(0, 0, 25, 0);
+        gbc.gridy = 12; gbc.insets = new Insets(0, 0, 25, 0);
         mainPanel.add(deptBox, gbc);
-
-        // --- DYNAMIC UI LOGIC: Hide Department if Admin is selected ---
-        roleBox.addActionListener(e -> {
-            boolean isAdmin = roleBox.getSelectedItem().equals("Admin");
-            deptLabel.setVisible(!isAdmin);
-            deptBox.setVisible(!isAdmin);
-        });
 
         // --- BUTTONS ---
         JButton signupBtn = new JButton("Create Account");
@@ -120,7 +117,7 @@ public class SignupWindow extends JFrame {
         signupBtn.setFont(new Font("SansSerif", Font.BOLD, 15));
         signupBtn.setFocusPainted(false);
         signupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 14; gbc.insets = new Insets(10, 0, 10, 0);
+        gbc.gridy = 13; gbc.insets = new Insets(10, 0, 10, 0);
         mainPanel.add(signupBtn, gbc);
 
         JButton backBtn = new JButton("Already have an account? Sign in");
@@ -129,18 +126,47 @@ public class SignupWindow extends JFrame {
         backBtn.setForeground(new Color(108, 117, 125));
         backBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
         backBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 15;
+        gbc.gridy = 14;
         mainPanel.add(backBtn, gbc);
 
         add(mainPanel, BorderLayout.CENTER);
 
-        // --- ACTIONS ---
+        // --- TOGGLE ACTIONS ---
+        studentToggleBtn.addActionListener(e -> {
+            selectedRole = "Student";
+            setToggleActive(studentToggleBtn, organizerToggleBtn);
+            deptLabel.setVisible(true);
+            deptBox.setVisible(true);
+        });
+
+        organizerToggleBtn.addActionListener(e -> {
+            selectedRole = "Organizer";
+            setToggleActive(organizerToggleBtn, studentToggleBtn);
+            deptLabel.setVisible(false);
+            deptBox.setVisible(false);
+        });
+
+        // --- NAVIGATION ACTIONS ---
         backBtn.addActionListener(e -> {
             this.dispose();
             new LoginWindow().setVisible(true);
         });
 
         signupBtn.addActionListener(e -> handleSignup());
+    }
+
+    // --- HELPER: Styles the toggle buttons dynamically ---
+    private void setToggleActive(JButton activeBtn, JButton inactiveBtn) {
+        activeBtn.setBackground(new Color(0, 102, 204));
+        activeBtn.setForeground(Color.WHITE);
+        activeBtn.setFont(new Font("SansSerif", Font.BOLD, 14));
+        activeBtn.setFocusPainted(false);
+
+        inactiveBtn.setBackground(new Color(241, 243, 245));
+        inactiveBtn.setForeground(Color.GRAY);
+        inactiveBtn.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        inactiveBtn.setFocusPainted(false);
+        inactiveBtn.setBorder(BorderFactory.createLineBorder(new Color(222, 226, 230)));
     }
 
     private JTextField createField(String labelText, JPanel container, GridBagConstraints gbc, int row) {
@@ -162,7 +188,6 @@ public class SignupWindow extends JFrame {
         String name = nameField.getText().trim();
         String email = emailField.getText().trim();
         String pass = new String(passField.getPassword());
-        String role = (String) roleBox.getSelectedItem();
         String userId = "U" + (int)(Math.random() * 10000);
         
         String deptId = null;
@@ -172,14 +197,13 @@ public class SignupWindow extends JFrame {
             return;
         }
 
-        // If they are NOT an admin, grab the department ID from the formatted string
-        if (!role.equals("Admin")) {
+        // If they are a Student, grab the department ID. If Organizer, leave it as null!
+        if (selectedRole.equals("Student")) {
             String selectedDept = (String) deptBox.getSelectedItem();
-            deptId = selectedDept.split(" - ")[0]; // Splits "CS01 - Computer Science" into just "CS01"
+            deptId = selectedDept.split(" - ")[0]; 
         }
 
-        // Successfully routes to our newly updated 6-parameter UserDAO
-        if(new UserDAO().registerUser(userId, name, email, pass, role, deptId)) {
+        if(new UserDAO().registerUser(userId, name, email, pass, selectedRole, deptId)) {
             JOptionPane.showMessageDialog(this, "Welcome aboard, " + name + "! Please login.");
             this.dispose();
             new LoginWindow().setVisible(true);
