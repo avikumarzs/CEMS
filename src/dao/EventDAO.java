@@ -14,9 +14,10 @@ public class EventDAO {
     // 1. For Students: Fetch ONLY Approved Events (Includes Real Venue Name)
     public List<Event> getApprovedEvents() {
         List<Event> eventList = new ArrayList<>();
-        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name " +
+        // UPDATED: Added Organizer_ID and Admin_ID to match the new 3NF model
+        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
-                       "WHERE e.Status = 'Approved'";
+                       "WHERE e.Status = 'Scheduled'"; // Note: Using 'Scheduled' based on your SQL dummy data
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query);
@@ -29,7 +30,9 @@ public class EventDAO {
                         rs.getDate("Event_Date"),
                         rs.getString("Status"), 
                         rs.getInt("Current_Registrations"), 
-                        rs.getString("Venue_Name") // Passing the Location instead of ID
+                        rs.getString("Venue_Name"), // Passing the Location instead of ID for the UI
+                        rs.getString("Organizer_ID"),
+                        rs.getString("Admin_ID")
                 ));
             }
         } catch (Exception e) { 
@@ -41,7 +44,8 @@ public class EventDAO {
     // 2. For Organizers: Fetch ONLY their own events (Includes Real Venue Name)
     public List<Event> getEventsByOrganizer(String organizerId) {
         List<Event> eventList = new ArrayList<>();
-        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name " +
+        // UPDATED: Added Organizer_ID and Admin_ID
+        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
                        "WHERE e.Organizer_ID = ?";
         
@@ -58,7 +62,9 @@ public class EventDAO {
                             rs.getDate("Event_Date"),
                             rs.getString("Status"), 
                             rs.getInt("Current_Registrations"), 
-                            rs.getString("Venue_Name") // Passing the Location instead of ID
+                            rs.getString("Venue_Name"), 
+                            rs.getString("Organizer_ID"),
+                            rs.getString("Admin_ID")
                     ));
                 }
             }
@@ -71,7 +77,8 @@ public class EventDAO {
     // 3. For Admins: Fetch ONLY Pending events (Includes Real Venue Name)
     public List<Event> getPendingEvents() {
         List<Event> eventList = new ArrayList<>();
-        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name " +
+        // UPDATED: Added Organizer_ID and Admin_ID
+        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
                        "WHERE e.Status = 'Pending'";
         
@@ -86,7 +93,9 @@ public class EventDAO {
                         rs.getDate("Event_Date"),
                         rs.getString("Status"), 
                         rs.getInt("Current_Registrations"), 
-                        rs.getString("Venue_Name") // Passing the Location instead of ID
+                        rs.getString("Venue_Name"), 
+                        rs.getString("Organizer_ID"),
+                        rs.getString("Admin_ID")
                 ));
             }
         } catch (Exception e) { 
@@ -121,7 +130,7 @@ public class EventDAO {
 
     // 5. Approve an Event (Admin only)
     public boolean approveEvent(String eventId) {
-        String query = "UPDATE Event SET Status = 'Approved' WHERE Event_ID = ?";
+        String query = "UPDATE Event SET Status = 'Scheduled' WHERE Event_ID = ?";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -144,7 +153,7 @@ public class EventDAO {
              PreparedStatement regStmt = conn.prepareStatement(deleteRegQuery);
              PreparedStatement eventStmt = conn.prepareStatement(deleteEventQuery)) {
             
-            // 1. Delete all student registrations tied to this event first
+            // 1. Delete all student registrations tied to this event first to respect 3NF Foreign Keys
             regStmt.setString(1, eventId);
             regStmt.executeUpdate(); 
             
@@ -157,6 +166,7 @@ public class EventDAO {
             return false; 
         }
     }
+
     // 7. Reject an Event (Admin only - sets status to 'Rejected')
     public boolean rejectEvent(String eventId) {
         String query = "UPDATE Event SET Status = 'Rejected' WHERE Event_ID = ?";
@@ -172,23 +182,32 @@ public class EventDAO {
             return false; 
         }
     }
-    // --- NEW: Get events a specific student is registered for ---
+
+    // 8. Get events a specific student is registered for
     public List<Event> getEventsRegisteredByStudent(String studentId) {
         List<Event> list = new ArrayList<>();
-        // Joins the Event and Registration tables together
-        String query = "SELECT e.* FROM Event e JOIN Registration r ON e.Event_ID = r.Event_ID WHERE r.Student_ID = ?";
+        // UPDATED: Fetches all required columns to build the Event object and Joins Venue to get the real Location
+        String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
+                       "FROM Event e " +
+                       "JOIN Registration r ON e.Event_ID = r.Event_ID " +
+                       "JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
+                       "WHERE r.Student_ID = ?";
         
-        try (java.sql.Connection conn = utils.DatabaseConnection.getConnection();
-             java.sql.PreparedStatement stmt = conn.prepareStatement(query)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(query)) {
             
             stmt.setString(1, studentId);
-            try (java.sql.ResultSet rs = stmt.executeQuery()) {
+            try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     list.add(new Event(
-                        rs.getString("Event_ID"), rs.getString("Title"),
-                        rs.getDate("Event_Date"), rs.getString("Venue_ID"),
-                        rs.getString("Organizer_ID"), rs.getString("Status"),
-                        rs.getInt("Current_Registrations")
+                            rs.getString("Event_ID"), 
+                            rs.getString("Title"), 
+                            rs.getDate("Event_Date"),
+                            rs.getString("Status"), 
+                            rs.getInt("Current_Registrations"), 
+                            rs.getString("Venue_Name"), 
+                            rs.getString("Organizer_ID"),
+                            rs.getString("Admin_ID")
                     ));
                 }
             }

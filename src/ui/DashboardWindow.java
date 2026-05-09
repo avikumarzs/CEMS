@@ -142,6 +142,7 @@ public class DashboardWindow extends JFrame {
                 // --- CANCEL REGISTRATION LOGIC ---
                 int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to drop out of " + eventTitle + "?", "Confirm Cancellation", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
+                    // UPDATED: Now triggers our Cancel_Registration stored procedure!
                     if (regDAO.unregisterStudent(currentUser.getUserId(), eventId)) {
                         JOptionPane.showMessageDialog(this, "Registration Cancelled.");
                         loadMyRegisteredEvents(); // Refresh view
@@ -159,11 +160,18 @@ public class DashboardWindow extends JFrame {
                 int confirm = JOptionPane.showConfirmDialog(this, "Register for " + eventTitle + "?", "Confirm", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
                     String regId = "R" + (int)(Math.random() * 10000);
-                    java.sql.Date today = new java.sql.Date(System.currentTimeMillis());
-
-                    if (regDAO.registerStudent(regId, today, currentUser.getUserId(), eventId)) {
+                    
+                    // UPDATED: Removed the Java Date parameter. The DB handles the date.
+                    // If the venue is full, our Stored Procedure blocks it, DAO returns false!
+                    if (regDAO.registerStudent(regId, currentUser.getUserId(), eventId)) {
                         JOptionPane.showMessageDialog(this, "Successfully Registered!");
                         loadApprovedEvents(); // Refresh view
+                    } else {
+                        // THE MAGIC: The Database threw our SQLSTATE 45000 error, and we catch it right here!
+                        JOptionPane.showMessageDialog(this, 
+                            "Registration Failed!\n\nThis venue has reached its maximum capacity. No more seats are available.", 
+                            "Event Full", 
+                            JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -226,6 +234,7 @@ public class DashboardWindow extends JFrame {
         tableModel.setRowCount(0); 
         List<Event> events = new EventDAO().getApprovedEvents();
         for (Event ev : events) {
+            // Note: Because we updated EventDAO, ev.getVenueId() now actually holds the formatted "Venue Location"!
             tableModel.addRow(new Object[]{ev.getEventId(), ev.getTitle(), ev.getEventDate(), ev.getStatus(), ev.getCurrentRegistrations(), ev.getVenueId()});
         }
     }

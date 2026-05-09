@@ -10,11 +10,12 @@ public class SignupWindow extends JFrame {
     private JTextField nameField, emailField;
     private JPasswordField passField;
     private JComboBox<String> roleBox;
+    private JComboBox<String> deptBox; // NEW: Department Dropdown
+    private JLabel deptLabel;          // NEW: Department Label
 
     public SignupWindow() {
         setTitle("CEMS - Create Account");
-        // MATCHED width to 650 for a seamless transition from the Profile Login screen
-        setSize(650, 750); 
+        setSize(650, 800); // Slightly taller to fit the new dropdown
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
@@ -22,7 +23,7 @@ public class SignupWindow extends JFrame {
 
         JPanel mainPanel = new JPanel(new GridBagLayout());
         mainPanel.setBackground(Color.WHITE);
-        mainPanel.setBorder(new EmptyBorder(25, 80, 25, 80)); // Slightly more side padding for the wider window
+        mainPanel.setBorder(new EmptyBorder(25, 80, 25, 80)); 
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -70,18 +71,46 @@ public class SignupWindow extends JFrame {
         gbc.gridy = 9; gbc.insets = new Insets(0, 0, 15, 0);
         mainPanel.add(passField, gbc);
 
+        // --- ROLE DROPDOWN ---
         JLabel roleLabel = new JLabel("Register As");
         roleLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         roleLabel.setForeground(Color.GRAY);
         gbc.gridy = 10; gbc.insets = new Insets(5, 0, 5, 0);
         mainPanel.add(roleLabel, gbc);
 
+        // Added Admin to the dropdown list
         String[] roles = {"Student", "Organizer"};
         roleBox = new JComboBox<>(roles);
         roleBox.setPreferredSize(new Dimension(0, 45));
         roleBox.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        gbc.gridy = 11; gbc.insets = new Insets(0, 0, 25, 0);
+        gbc.gridy = 11; gbc.insets = new Insets(0, 0, 15, 0);
         mainPanel.add(roleBox, gbc);
+
+        // --- DEPARTMENT DROPDOWN (Dynamic) ---
+        deptLabel = new JLabel("Department");
+        deptLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+        deptLabel.setForeground(Color.GRAY);
+        gbc.gridy = 12; gbc.insets = new Insets(5, 0, 5, 0);
+        mainPanel.add(deptLabel, gbc);
+
+        // Populating with our pre-fed SQL data
+        String[] depts = {
+            "CS01 - Computer Science", 
+            "IT02 - Information Technology", 
+            "EE03 - Electrical Engineering"
+        };
+        deptBox = new JComboBox<>(depts);
+        deptBox.setPreferredSize(new Dimension(0, 45));
+        deptBox.setFont(new Font("SansSerif", Font.PLAIN, 15));
+        gbc.gridy = 13; gbc.insets = new Insets(0, 0, 25, 0);
+        mainPanel.add(deptBox, gbc);
+
+        // --- DYNAMIC UI LOGIC: Hide Department if Admin is selected ---
+        roleBox.addActionListener(e -> {
+            boolean isAdmin = roleBox.getSelectedItem().equals("Admin");
+            deptLabel.setVisible(!isAdmin);
+            deptBox.setVisible(!isAdmin);
+        });
 
         // --- BUTTONS ---
         JButton signupBtn = new JButton("Create Account");
@@ -91,7 +120,7 @@ public class SignupWindow extends JFrame {
         signupBtn.setFont(new Font("SansSerif", Font.BOLD, 15));
         signupBtn.setFocusPainted(false);
         signupBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 12; gbc.insets = new Insets(10, 0, 10, 0);
+        gbc.gridy = 14; gbc.insets = new Insets(10, 0, 10, 0);
         mainPanel.add(signupBtn, gbc);
 
         JButton backBtn = new JButton("Already have an account? Sign in");
@@ -100,7 +129,7 @@ public class SignupWindow extends JFrame {
         backBtn.setForeground(new Color(108, 117, 125));
         backBtn.setFont(new Font("SansSerif", Font.BOLD, 13));
         backBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        gbc.gridy = 13;
+        gbc.gridy = 15;
         mainPanel.add(backBtn, gbc);
 
         add(mainPanel, BorderLayout.CENTER);
@@ -135,13 +164,22 @@ public class SignupWindow extends JFrame {
         String pass = new String(passField.getPassword());
         String role = (String) roleBox.getSelectedItem();
         String userId = "U" + (int)(Math.random() * 10000);
+        
+        String deptId = null;
 
         if(name.isEmpty() || email.isEmpty() || pass.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please fill in all fields!");
             return;
         }
 
-        if(new UserDAO().registerUser(userId, name, email, pass, role)) {
+        // If they are NOT an admin, grab the department ID from the formatted string
+        if (!role.equals("Admin")) {
+            String selectedDept = (String) deptBox.getSelectedItem();
+            deptId = selectedDept.split(" - ")[0]; // Splits "CS01 - Computer Science" into just "CS01"
+        }
+
+        // Successfully routes to our newly updated 6-parameter UserDAO
+        if(new UserDAO().registerUser(userId, name, email, pass, role, deptId)) {
             JOptionPane.showMessageDialog(this, "Welcome aboard, " + name + "! Please login.");
             this.dispose();
             new LoginWindow().setVisible(true);

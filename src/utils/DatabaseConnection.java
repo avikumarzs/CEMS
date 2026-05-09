@@ -7,7 +7,7 @@ import java.sql.SQLException;
 public class DatabaseConnection {
     
     // CHANGE THESE to match your local MySQL setup
-    private static final String URL = "jdbc:mysql://localhost:3306/campus_events_db";
+    private static final String URL = "jdbc:mysql://localhost:3306/cems";
     private static final String USER = "root"; 
     private static final String PASSWORD = "avi1"; // <-- UPDATE THIS!
 

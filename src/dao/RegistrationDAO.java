@@ -1,10 +1,11 @@
 package dao;
 
 import utils.DatabaseConnection;
+import java.sql.CallableStatement;
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 
 public class RegistrationDAO {
 
@@ -29,36 +30,43 @@ public class RegistrationDAO {
         return false; 
     }
 
-    // 2. THE INSERT: Actually register the student
-    public boolean registerStudent(String regId, Date regDate, String studentId, String eventId) {
-        String query = "INSERT INTO Registration (Reg_ID, Reg_Date, Student_ID, Event_ID) VALUES (?, ?, ?, ?)";
+    // 2. THE INSERT: Actually register the student using our Stored Procedure!
+    // NOTE: I removed the "Date regDate" parameter because our SQL procedure uses CURDATE() automatically!
+    public boolean registerStudent(String regId, String studentId, String eventId) {
+        // Notice the {CALL ...} syntax! This tells JDBC to run a procedure instead of a raw query.
+        String query = "{CALL Register_Student_Safe(?, ?, ?)}";
         
         try (Connection conn = DatabaseConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(query)) {
+             CallableStatement stmt = conn.prepareCall(query)) {
             
             stmt.setString(1, regId);
-            stmt.setDate(2, regDate);
-            stmt.setString(3, studentId);
-            stmt.setString(4, eventId);
+            stmt.setString(2, studentId);
+            stmt.setString(3, eventId);
             
-            return stmt.executeUpdate() > 0; // Triggers will automatically update Event count!
+            return stmt.executeUpdate() > 0; 
             
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (SQLException e) {
+            // THE MAGIC: If the Venue is full, MySQL throws error 45000. We catch it here!
+            if ("45000".equals(e.getSQLState())) {
+                System.out.println("Registration Blocked by Database: " + e.getMessage());
+            } else {
+                e.printStackTrace();
+            }
             return false;
         }
     }
-    // --- NEW: Cancel a registration ---
+
+    // 3. THE DELETE: Cancel a registration using our Stored Procedure!
     public boolean unregisterStudent(String studentId, String eventId) {
-        String query = "DELETE FROM Registration WHERE Student_ID = ? AND Event_ID = ?";
+        String query = "{CALL Cancel_Registration(?, ?)}";
         
-        try (java.sql.Connection conn = utils.DatabaseConnection.getConnection();
-             java.sql.PreparedStatement stmt = conn.prepareStatement(query)) {
+        try (Connection conn = DatabaseConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall(query)) {
             
             stmt.setString(1, studentId);
             stmt.setString(2, eventId);
             
-            return stmt.executeUpdate() > 0; // Triggers should auto-decrement the event count!
+            return stmt.executeUpdate() > 0; 
             
         } catch (Exception e) {
             e.printStackTrace();

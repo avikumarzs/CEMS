@@ -138,12 +138,15 @@ public class OrganizerDashboard extends JFrame {
     }
 
     private void loadVenues() {
-        String[] cols = {"Venue ID", "Venue Name", "Max Capacity"};
+        // UPDATED: Adjusted columns to match our 3NF Database
+        String[] cols = {"Venue ID", "Location", "Capacity", "Status"};
         tableModel.setColumnIdentifiers(cols);
         tableModel.setRowCount(0);
-        List<Venue> venues = new VenueDAO().getAllVenues();
+        
+        // UPDATED: Used getAvailableVenues() to match our DAO, and v.getLocation() to match our Model
+        List<Venue> venues = new VenueDAO().getAvailableVenues();
         for (Venue v : venues) {
-            tableModel.addRow(new Object[]{v.getVenueId(), v.getVenueName(), v.getCapacity()});
+            tableModel.addRow(new Object[]{v.getVenueId(), v.getLocation(), v.getCapacity(), v.getStatus()});
         }
     }
 

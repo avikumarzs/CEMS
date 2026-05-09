@@ -2,38 +2,26 @@ package models;
 
 public class Venue {
     private String venueId;
-    private String venueName;
+    private String location; // CHANGED: Matches 'Location' column in DB
     private int capacity;
+    private String status; // ADDED: Matches 'Status' column in DB
 
-    // --- CONSTRUCTOR ---
-    public Venue(String venueId, String venueName, int capacity) {
+    // Full Constructor
+    public Venue(String venueId, String location, int capacity, String status) {
         this.venueId = venueId;
-        this.venueName = venueName;
+        this.location = location;
         this.capacity = capacity;
+        this.status = status;
     }
 
-    // --- GETTERS & SETTERS ---
-    public String getVenueId() {
-        return venueId;
-    }
+    // Getters
+    public String getVenueId() { return venueId; }
+    public String getLocation() { return location; }
+    public int getCapacity() { return capacity; }
+    public String getStatus() { return status; }
 
-    public void setVenueId(String venueId) {
-        this.venueId = venueId;
-    }
-
-    public String getVenueName() {
-        return venueName;
-    }
-
-    public void setVenueName(String venueName) {
-        this.venueName = venueName;
-    }
-
-    public int getCapacity() {
-        return capacity;
-    }
-
-    public void setCapacity(int capacity) {
-        this.capacity = capacity;
-    }
+    // Setters
+    public void setLocation(String location) { this.location = location; }
+    public void setCapacity(int capacity) { this.capacity = capacity; }
+    public void setStatus(String status) { this.status = status; }
 }

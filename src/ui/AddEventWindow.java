@@ -3,6 +3,7 @@ package ui;
 import dao.EventDAO;
 import dao.VenueDAO;
 import models.User;
+import models.Venue; // ADDED: To use our Venue model
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -66,28 +67,21 @@ public class AddEventWindow extends JFrame {
         gbc.weightx = 1.0;
 
         // --- SECTION 1: EVENT IDENTITY ---
-        // Header takes up Rows 0 and 1
         addSectionHeader("BASIC INFORMATION", mainContent, gbc, 0);
 
-        // ID Field starts at Row 2 (takes 2 and 3)
         JTextField idField = createStyledField("Event ID (e.g., E011)", mainContent, gbc, 2); 
-        
-        // Title Field starts at Row 4 (takes 4 and 5)
         JTextField titleField = createStyledField("Event Title", mainContent, gbc, 4);
 
         // --- SECTION 2: LOGISTICS ---
         gbc.insets = new Insets(30, 0, 10, 0); 
-        // Header takes up Rows 6 and 7
         addSectionHeader("DATE & LOCATION", mainContent, gbc, 6); 
         gbc.insets = new Insets(5, 0, 15, 0); 
 
-        // Custom Date Grid - Row 8
         JLabel dateLbl = new JLabel("Scheduled Date");
         dateLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
         dateLbl.setForeground(Color.GRAY);
         gbc.gridy = 8; mainContent.add(dateLbl, gbc);
 
-        // Date Dropdowns - Row 9
         JPanel dateGrid = new JPanel(new GridLayout(1, 3, 15, 0));
         dateGrid.setBackground(Color.WHITE);
         String[] years = {"Year", "2026", "2027", "2028", "2029"};
@@ -102,15 +96,23 @@ public class AddEventWindow extends JFrame {
 
         gbc.gridy = 9; mainContent.add(dateGrid, gbc);
 
-        // Venue Label - Row 10
         JLabel venueLbl = new JLabel("Select Venue");
         venueLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
         venueLbl.setForeground(Color.GRAY);
         gbc.gridy = 10; mainContent.add(venueLbl, gbc);
 
-        // Venue Dropdown - Row 11
-        List<String> venueList = new VenueDAO().getAllVenueDisplayNames();
-        JComboBox<String> venueBox = createStyledCombo(venueList.toArray(new String[0]));
+        // --- UPDATED: Dynamic Venue Loading using our new VenueDAO ---
+        List<Venue> availableVenues = new VenueDAO().getAvailableVenues();
+        String[] venueDisplayArray = new String[availableVenues.size() + 1];
+        venueDisplayArray[0] = "Select a Venue..."; // Default Prompt
+        
+        for (int i = 0; i < availableVenues.size(); i++) {
+            Venue v = availableVenues.get(i);
+            // Formats it as: "V001 - Main Auditorium (Cap: 500)"
+            venueDisplayArray[i + 1] = v.getVenueId() + " - " + v.getLocation() + " (Cap: " + v.getCapacity() + ")";
+        }
+        
+        JComboBox<String> venueBox = createStyledCombo(venueDisplayArray);
         gbc.gridy = 11; gbc.insets = new Insets(5, 0, 15, 0);
         mainContent.add(venueBox, gbc);
 
@@ -144,11 +146,13 @@ public class AddEventWindow extends JFrame {
             String selectedVenue = (String) venueBox.getSelectedItem();
             String venueId = "";
 
+            // --- UPDATED: Split logic to extract just the ID from our new formatted string ---
             if (selectedVenue != null && selectedVenue.contains(" - ")) {
                 venueId = selectedVenue.split(" - ")[0]; 
             }
 
-            if(id.isEmpty() || title.isEmpty() || venueId.isEmpty() || 
+            // Added check to make sure they didn't leave it on "Select a Venue..."
+            if(id.isEmpty() || title.isEmpty() || venueId.isEmpty() || venueBox.getSelectedIndex() == 0 ||
                yearBox.getSelectedIndex() == 0 || monthBox.getSelectedIndex() == 0 || dayBox.getSelectedIndex() == 0) {
                 showToast("Please fill in all details and select a valid venue.");
                 return;
@@ -163,6 +167,7 @@ public class AddEventWindow extends JFrame {
                     return;
                 }
 
+                // Inserts using our updated 3NF EventDAO (defaults status to Pending)
                 if (new EventDAO().insertEvent(id, title, Date.valueOf(localDate), venueId, currentUser.getUserId(), "Pending")) {
                     if (parentDashboard != null) parentDashboard.loadMyEvents();
                     JOptionPane.showMessageDialog(this, "Event successfully proposed!");

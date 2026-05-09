@@ -53,23 +53,20 @@ public class AdminDashboard extends JFrame {
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
         // Navigation Buttons
-        // Increased rows in GridLayout to accommodate the new button nicely
-        JPanel navPanel = new JPanel(new GridLayout(6, 1, 0, 15));
+        JPanel navPanel = new JPanel(new GridLayout(7, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
 
         JButton approveBtn = createSidebarButton("Approve Event", new Color(40, 167, 69));
         JButton rejectBtn = createSidebarButton("Reject Event", new Color(255, 152, 0)); 
-        
-        // --- NEW: Add Venue Button ---
-        JButton addVenueBtn = createSidebarButton("Add New Venue", new Color(108, 117, 125));
-        // -----------------------------
-
+        JButton addVenueBtn = createSidebarButton("Manage Venues", new Color(108, 117, 125));
+        JButton manageDeptsBtn = createSidebarButton("Manage Departments", new Color(108, 117, 125));
         JButton refreshBtn = createSidebarButton("Refresh Queue", new Color(0, 102, 204));
         
         navPanel.add(approveBtn);
         navPanel.add(rejectBtn); 
-        navPanel.add(addVenueBtn); // Added to layout
+        navPanel.add(addVenueBtn);
+        navPanel.add(manageDeptsBtn);
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
@@ -92,7 +89,8 @@ public class AdminDashboard extends JFrame {
         title.setBorder(new EmptyBorder(0, 0, 25, 0));
         mainContent.add(title, BorderLayout.NORTH);
 
-        String[] cols = {"Event ID", "Title", "Date", "Status", "Venue"};
+        // UPDATED: Added "Proposed By" to leverage our 3NF Database Organizer_ID
+        String[] cols = {"Event ID", "Title", "Date", "Venue", "Proposed By", "Status"};
         tableModel = new DefaultTableModel(cols, 0);
         pendingTable = new JTable(tableModel);
         
@@ -108,14 +106,12 @@ public class AdminDashboard extends JFrame {
         // ==========================================
         // 3. BUTTON ACTIONS
         // ==========================================
-        
         refreshBtn.addActionListener(e -> loadPendingEvents());
 
-        // --- NEW: Open Add Venue Window ---
+        // Replace the old action listener with this one:
         addVenueBtn.addActionListener(e -> {
-            new AddVenueWindow().setVisible(true);
+            new ManageVenuesWindow().setVisible(true);
         });
-        // ----------------------------------
 
         // APPROVE ACTION
         approveBtn.addActionListener(e -> {
@@ -154,6 +150,10 @@ public class AdminDashboard extends JFrame {
         logoutBtn.addActionListener(e -> {
             this.dispose();
             new LoginWindow().setVisible(true);
+        });
+
+        manageDeptsBtn.addActionListener(e -> {
+        new ManageDepartmentsWindow().setVisible(true);
         });
 
         loadPendingEvents();
@@ -198,18 +198,28 @@ public class AdminDashboard extends JFrame {
             table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
         }
 
-        table.getColumnModel().getColumn(0).setPreferredWidth(100); 
-        table.getColumnModel().getColumn(1).setPreferredWidth(400); 
-        table.getColumnModel().getColumn(2).setPreferredWidth(150); 
-        table.getColumnModel().getColumn(3).setPreferredWidth(150); 
-        table.getColumnModel().getColumn(4).setPreferredWidth(250); 
+        // UPDATED: Adjusted widths for the new 6-column layout
+        table.getColumnModel().getColumn(0).setPreferredWidth(80);  // ID
+        table.getColumnModel().getColumn(1).setPreferredWidth(300); // Title
+        table.getColumnModel().getColumn(2).setPreferredWidth(100); // Date
+        table.getColumnModel().getColumn(3).setPreferredWidth(200); // Venue
+        table.getColumnModel().getColumn(4).setPreferredWidth(120); // Proposed By
+        table.getColumnModel().getColumn(5).setPreferredWidth(100); // Status
     }
 
     private void loadPendingEvents() {
         tableModel.setRowCount(0);
         List<Event> events = new EventDAO().getPendingEvents();
         for (Event ev : events) {
-            tableModel.addRow(new Object[]{ev.getEventId(), ev.getTitle(), ev.getEventDate(), ev.getStatus(), ev.getVenueId()});
+            // UPDATED: Added ev.getOrganizerId() to populate the "Proposed By" column
+            tableModel.addRow(new Object[]{
+                ev.getEventId(), 
+                ev.getTitle(), 
+                ev.getEventDate(), 
+                ev.getVenueId(), // Remember our EventDAO now injects the actual Location Name here!
+                ev.getOrganizerId(), 
+                ev.getStatus()
+            });
         }
     }
 }
