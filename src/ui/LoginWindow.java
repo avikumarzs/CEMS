@@ -21,8 +21,8 @@ public class LoginWindow extends JFrame {
     private JPasswordField profilePasswordField = new JPasswordField();
     private JLabel profileWelcomeLabel = new JLabel("", SwingConstants.CENTER);
     
-    // NEW: We need to track the grid so we can refresh it when a profile is deleted
     private JPanel profileGrid;
+    private JButton backToProfilesBtn; // NEW: We track this so we can hide it dynamically!
     
     private String selectedProfileEmail = "";
     private Preferences prefs = Preferences.userNodeForPackage(LoginWindow.class);
@@ -93,7 +93,6 @@ public class LoginWindow extends JFrame {
         return panel;
     }
 
-    // --- NEW: Dynamic refresh logic ---
     private void refreshProfiles() {
         profileGrid.removeAll();
         String savedData = prefs.get("saved_users", "");
@@ -109,17 +108,18 @@ public class LoginWindow extends JFrame {
         profileGrid.revalidate();
         profileGrid.repaint();
 
-        // If they deleted the last profile, auto-switch to standard login
+        // --- FIX: Hide the back button if no profiles exist! ---
         if (savedData.isEmpty()) {
+            if (backToProfilesBtn != null) backToProfilesBtn.setVisible(false);
             cardLayout.show(mainCardPanel, "STANDARD_LOGIN");
+        } else {
+            if (backToProfilesBtn != null) backToProfilesBtn.setVisible(true);
         }
     }
 
-    // --- NEW: Delete a specific user ---
     private void deleteSavedUser(String emailToRemove) {
         String saved = prefs.get("saved_users", "");
         List<String> list = new ArrayList<>(Arrays.asList(saved.split(";")));
-        // Remove the exact entry matching this email
         list.removeIf(entry -> entry.endsWith(":" + emailToRemove));
         
         if (list.isEmpty()) {
@@ -135,7 +135,6 @@ public class LoginWindow extends JFrame {
         c.setLayout(new BoxLayout(c, BoxLayout.Y_AXIS));
         c.setBackground(Color.WHITE);
 
-        // --- UPDATED: Absolute positioning to layer the Delete button over the Avatar ---
         JPanel avatarContainer = new JPanel(null); 
         avatarContainer.setOpaque(false);
         avatarContainer.setPreferredSize(new Dimension(100, 100));
@@ -143,7 +142,7 @@ public class LoginWindow extends JFrame {
         avatarContainer.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton btn = new JButton(isNew ? "+" : String.valueOf(name.charAt(0)).toUpperCase());
-        btn.setBounds(0, 10, 90, 90); // Placed slightly lower to give room for the 'x'
+        btn.setBounds(0, 10, 90, 90); 
         btn.setFont(new Font("SansSerif", isNew ? Font.PLAIN : Font.BOLD, isNew ? 42 : 36));
         btn.setBackground(isNew ? new Color(241, 243, 245) : new Color(0, 102, 204));
         btn.setForeground(isNew ? Color.GRAY : Color.WHITE);
@@ -162,15 +161,13 @@ public class LoginWindow extends JFrame {
             }
         });
 
-        // Add the main avatar
         avatarContainer.add(btn);
 
-        // Add the mini 'x' button ONLY if it is an existing profile
         if (!isNew) {
             JButton delBtn = new JButton("×");
-            delBtn.setBounds(70, 0, 26, 26); // Placed explicitly at the top right corner
+            delBtn.setBounds(70, 0, 26, 26); 
             delBtn.setFont(new Font("SansSerif", Font.BOLD, 16));
-            delBtn.setBackground(new Color(220, 53, 69)); // Red alert color
+            delBtn.setBackground(new Color(220, 53, 69)); 
             delBtn.setForeground(Color.WHITE);
             delBtn.setMargin(new Insets(0,0,0,0));
             delBtn.setFocusPainted(false);
@@ -179,11 +176,10 @@ public class LoginWindow extends JFrame {
             delBtn.putClientProperty("JButton.buttonType", "roundRect");
             delBtn.putClientProperty("JButton.arc", 999);
             
-            // Triggers our new delete logic!
             delBtn.addActionListener(e -> deleteSavedUser(email));
             
             avatarContainer.add(delBtn);
-            avatarContainer.setComponentZOrder(delBtn, 0); // Forces the 'x' to render ON TOP of the avatar
+            avatarContainer.setComponentZOrder(delBtn, 0); 
         }
 
         JLabel lbl = new JLabel(name.split(" ")[0]);
@@ -236,15 +232,15 @@ public class LoginWindow extends JFrame {
         styleFooterBtn(signupLink);
         gbc.gridy = 8; formContainer.add(signupLink, gbc);
 
-        JButton backBtn = new JButton("← Back to saved profiles");
-        styleFooterBtn(backBtn);
-        if (!prefs.get("saved_users", "").isEmpty()) {
-            gbc.gridy = 9; formContainer.add(backBtn, gbc);
-        }
+        // --- FIX: The button is always added, but we dynamically toggle its visibility! ---
+        backToProfilesBtn = new JButton("← Back to saved profiles");
+        styleFooterBtn(backToProfilesBtn);
+        backToProfilesBtn.setVisible(!prefs.get("saved_users", "").isEmpty());
+        gbc.gridy = 9; formContainer.add(backToProfilesBtn, gbc);
 
         loginBtn.addActionListener(e -> executeLogin(standardEmailField.getText(), new String(standardPasswordField.getPassword())));
         signupLink.addActionListener(e -> { this.dispose(); new SignupWindow().setVisible(true); });
-        backBtn.addActionListener(e -> cardLayout.show(mainCardPanel, "PROFILES"));
+        backToProfilesBtn.addActionListener(e -> cardLayout.show(mainCardPanel, "PROFILES"));
 
         outerPanel.add(formContainer);
         return outerPanel;
