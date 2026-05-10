@@ -38,8 +38,13 @@ public class DepartmentDAO {
             stmt.setString(2, name);
             return stmt.executeUpdate() > 0;
             
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (java.sql.SQLException e) {
+            // SMART BACKEND VALIDATION
+            if (e.getErrorCode() == 1062) {
+                System.out.println("SQL Warning [1062]: Admin attempted to create a duplicate Department ID (" + deptId + ").");
+            } else {
+                e.printStackTrace();
+            }
             return false;
         }
     }

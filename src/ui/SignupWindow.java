@@ -1,9 +1,12 @@
 package ui;
 
 import dao.UserDAO;
+import dao.DepartmentDAO;
+import models.Department;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.util.List;
 
 public class SignupWindow extends JFrame {
 
@@ -12,7 +15,7 @@ public class SignupWindow extends JFrame {
     private JComboBox<String> deptBox;
     private JLabel deptLabel;
     
-    // --- NEW: State tracking for our toggle switch ---
+    // State tracking for our toggle switch
     private String selectedRole = "Student"; 
     private JButton studentToggleBtn, organizerToggleBtn;
 
@@ -58,7 +61,7 @@ public class SignupWindow extends JFrame {
         gbc.gridy = 3; gbc.insets = new Insets(0, 0, 25, 0);
         mainPanel.add(subtitleLabel, gbc);
 
-        // --- NEW: THE ROLE TOGGLE SWITCH ---
+        // --- THE ROLE TOGGLE SWITCH ---
         JPanel togglePanel = new JPanel(new GridLayout(1, 2));
         togglePanel.setPreferredSize(new Dimension(0, 45));
         togglePanel.setBackground(Color.WHITE);
@@ -91,19 +94,22 @@ public class SignupWindow extends JFrame {
         gbc.gridy = 10; gbc.insets = new Insets(0, 0, 15, 0);
         mainPanel.add(passField, gbc);
 
-        // --- DEPARTMENT DROPDOWN (Dynamic) ---
+        // --- DEPARTMENT DROPDOWN (Dynamic Database Fetch!) ---
         deptLabel = new JLabel("Department");
         deptLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         deptLabel.setForeground(Color.GRAY);
         gbc.gridy = 11; gbc.insets = new Insets(5, 0, 5, 0);
         mainPanel.add(deptLabel, gbc);
 
-        String[] depts = {
-            "CS01 - Computer Science", 
-            "IT02 - Information Technology", 
-            "EE03 - Electrical Engineering"
-        };
-        deptBox = new JComboBox<>(depts);
+        // Fetch live departments from the Database
+        List<Department> dbDepartments = new DepartmentDAO().getAllDepartments();
+        String[] deptArray = new String[dbDepartments.size()];
+        for (int i = 0; i < dbDepartments.size(); i++) {
+            Department d = dbDepartments.get(i);
+            deptArray[i] = d.getDeptId() + " - " + d.getName();
+        }
+
+        deptBox = new JComboBox<>(deptArray);
         deptBox.setPreferredSize(new Dimension(0, 45));
         deptBox.setFont(new Font("SansSerif", Font.PLAIN, 15));
         gbc.gridy = 12; gbc.insets = new Insets(0, 0, 25, 0);
@@ -189,26 +195,44 @@ public class SignupWindow extends JFrame {
         String email = emailField.getText().trim();
         String pass = new String(passField.getPassword());
         String userId = "U" + (int)(Math.random() * 10000);
-        
         String deptId = null;
 
+        // 1. Basic Empty Check
         if(name.isEmpty() || email.isEmpty() || pass.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please fill in all fields!");
+            JOptionPane.showMessageDialog(this, "Please fill in all required fields to continue.", "Incomplete Form", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // If they are a Student, grab the department ID. If Organizer, leave it as null!
+        // 2. REGEX: Strict Email Format Validation
+        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+        if (!email.matches(emailRegex)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.\nFormat: user@domain.com", "Invalid Email", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // 3. Security: Password Length Validation
+        if (pass.length() < 6) {
+            JOptionPane.showMessageDialog(this, "For your security, your password must be at least 6 characters long.", "Weak Password", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        // 4. Role-Based Department Logic
         if (selectedRole.equals("Student")) {
+            if (deptBox.getSelectedItem() == null) {
+                JOptionPane.showMessageDialog(this, "No departments available. Please contact an Administrator.", "System Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
             String selectedDept = (String) deptBox.getSelectedItem();
             deptId = selectedDept.split(" - ")[0]; 
         }
 
+        // 5. Send to Database
         if(new UserDAO().registerUser(userId, name, email, pass, selectedRole, deptId)) {
-            JOptionPane.showMessageDialog(this, "Welcome aboard, " + name + "! Please login.");
+            JOptionPane.showMessageDialog(this, "Welcome aboard, " + name + "! Your account is ready.", "Success", JOptionPane.INFORMATION_MESSAGE);
             this.dispose();
             new LoginWindow().setVisible(true);
         } else {
-            JOptionPane.showMessageDialog(this, "Email already in use.", "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "An account with '" + email + "' already exists.\nPlease sign in instead.", "Account Exists", JOptionPane.ERROR_MESSAGE);
         }
     }
 }

@@ -76,12 +76,19 @@ public class VenueDAO {
         String query = "INSERT INTO Venue (Venue_ID, Location, Capacity, Status) VALUES (?, ?, ?, 'Available')";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
+            
             stmt.setString(1, venueId);
             stmt.setString(2, location);
             stmt.setInt(3, capacity);
             return stmt.executeUpdate() > 0;
-        } catch (Exception e) {
-            e.printStackTrace();
+            
+        } catch (java.sql.SQLException e) {
+            // SMART BACKEND VALIDATION
+            if (e.getErrorCode() == 1062) {
+                System.out.println("SQL Warning [1062]: Admin attempted to create a duplicate Venue ID (" + venueId + ").");
+            } else {
+                e.printStackTrace();
+            }
             return false;
         }
     }

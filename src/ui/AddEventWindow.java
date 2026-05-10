@@ -146,15 +146,20 @@ public class AddEventWindow extends JFrame {
             String selectedVenue = (String) venueBox.getSelectedItem();
             String venueId = "";
 
-            // --- UPDATED: Split logic to extract just the ID from our new formatted string ---
             if (selectedVenue != null && selectedVenue.contains(" - ")) {
                 venueId = selectedVenue.split(" - ")[0]; 
             }
 
-            // Added check to make sure they didn't leave it on "Select a Venue..."
+            // 1. Frontend: Empty Field Validation
             if(id.isEmpty() || title.isEmpty() || venueId.isEmpty() || venueBox.getSelectedIndex() == 0 ||
                yearBox.getSelectedIndex() == 0 || monthBox.getSelectedIndex() == 0 || dayBox.getSelectedIndex() == 0) {
-                showToast("Please fill in all details and select a valid venue.");
+                JOptionPane.showMessageDialog(this, "Please fill in all details and select a valid venue.", "Incomplete Form", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            // 2. Frontend: Regex Validation for Event ID (Must be 'E' followed by 3 digits)
+            if (!id.matches("^E\\d{3}$")) {
+                JOptionPane.showMessageDialog(this, "Event ID must start with 'E' followed by 3 digits (e.g., E001).", "Invalid ID Format", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
@@ -162,21 +167,23 @@ public class AddEventWindow extends JFrame {
                 String dateStr = yearBox.getSelectedItem() + "-" + monthBox.getSelectedItem() + "-" + dayBox.getSelectedItem();
                 LocalDate localDate = LocalDate.parse(dateStr);
                 
+                // 3. Frontend: Date Logic Validation
                 if (localDate.isBefore(LocalDate.now())) {
-                    showToast("Date must be in the future.");
+                    JOptionPane.showMessageDialog(this, "The event date cannot be in the past. Please select a valid future date.", "Invalid Date", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                // Inserts using our updated 3NF EventDAO (defaults status to Pending)
+                // 4. Send to Database
                 if (new EventDAO().insertEvent(id, title, Date.valueOf(localDate), venueId, currentUser.getUserId(), "Pending")) {
                     if (parentDashboard != null) parentDashboard.loadMyEvents();
-                    JOptionPane.showMessageDialog(this, "Event successfully proposed!");
+                    JOptionPane.showMessageDialog(this, "Event successfully proposed and sent to Admin for approval!", "Success", JOptionPane.INFORMATION_MESSAGE);
                     this.dispose();
                 } else {
-                    showToast("Error: Event ID might already exist.");
+                    // Backend caught an error (handled via DAO)
+                    JOptionPane.showMessageDialog(this, "Failed to propose event. The Event ID '" + id + "' might already be in use.", "Database Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (DateTimeParseException ex) {
-                showToast("Invalid date selected.");
+                JOptionPane.showMessageDialog(this, "The date you selected does not exist (e.g., February 31st).", "Invalid Date", JOptionPane.ERROR_MESSAGE);
             }
         });
     }

@@ -289,11 +289,20 @@ public class LoginWindow extends JFrame {
     // LOGIC & STYLING
     // ==========================================
     private void executeLogin(String email, String password) {
-        if (email.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Fields cannot be empty!");
+        // 1. Better Empty Field Validation
+        if (email.trim().isEmpty() || password.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter both your email and password to sign in.", "Missing Credentials", JOptionPane.WARNING_MESSAGE);
             return;
         }
+        
+        // 2. Prevent unnecessary database calls if email format is obviously wrong
+        if (!email.contains("@")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Format", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
         User user = new UserDAO().authenticateUser(email, password);
+        
         if (user != null) {
             saveUser(user.getName(), email);
             this.dispose();
@@ -301,7 +310,8 @@ public class LoginWindow extends JFrame {
             else if (user.getRole().equals("Organizer")) new OrganizerDashboard(user).setVisible(true);
             else new DashboardWindow(user).setVisible(true);
         } else {
-            JOptionPane.showMessageDialog(this, "Invalid credentials", "Error", JOptionPane.ERROR_MESSAGE);
+            // 3. Professional Rejection Message
+            JOptionPane.showMessageDialog(this, "We couldn't find an account matching those credentials.\nPlease check your email and password and try again.", "Authentication Failed", JOptionPane.ERROR_MESSAGE);
         }
     }
 

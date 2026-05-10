@@ -106,8 +106,7 @@ public class EventDAO {
 
     // 4. Create a new Event (Defaults to Pending via the UI)
     public boolean insertEvent(String eventId, String title, Date eventDate, String venueId, String organizerId, String status) {
-        // Admin_ID is hardcoded to 'U001' as the default system approver
-        String query = "INSERT INTO Event (Event_ID, Title, Event_Date, Status, Venue_ID, Organizer_ID, Admin_ID) VALUES (?, ?, ?, ?, ?, ?, 'U001')";
+        String query = "INSERT INTO Event (Event_ID, Title, Event_Date, Status, Venue_ID, Organizer_ID, Admin_ID) VALUES (?, ?, ?, ?, ?, ?, 'A001')";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -121,9 +120,16 @@ public class EventDAO {
             
             return stmt.executeUpdate() > 0;
             
-        } catch (Exception e) { 
-            System.out.println("Error inserting new event:");
-            e.printStackTrace(); 
+        } catch (java.sql.SQLException e) { 
+            // SMART BACKEND VALIDATION
+            if (e.getErrorCode() == 1062) {
+                System.out.println("SQL Warning [1062]: Organizer attempted to use a duplicate Event ID.");
+            } else if (e.getErrorCode() == 1452) {
+                System.out.println("SQL Warning [1452]: Foreign Key failure. The venue or organizer does not exist.");
+            } else {
+                System.out.println("CRITICAL SQL ERROR: " + e.getMessage());
+                e.printStackTrace(); 
+            }
             return false; 
         }
     }
