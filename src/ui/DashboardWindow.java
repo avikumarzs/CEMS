@@ -142,36 +142,30 @@ public class DashboardWindow extends JFrame {
                 // --- CANCEL REGISTRATION LOGIC ---
                 int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to drop out of " + eventTitle + "?", "Confirm Cancellation", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    // UPDATED: Now triggers our Cancel_Registration stored procedure!
-                    if (regDAO.unregisterStudent(currentUser.getUserId(), eventId)) {
-                        JOptionPane.showMessageDialog(this, "Registration Cancelled.");
+                    // UPDATED: Now triggers our Cancel_Registration stored procedure equivalent in Java!
+                    if (regDAO.cancelRegistration(currentUser.getUserId(), eventId)) {
+                        JOptionPane.showMessageDialog(this, "Registration Cancelled.", "Success", JOptionPane.INFORMATION_MESSAGE);
                         loadMyRegisteredEvents(); // Refresh view
                     } else {
                         JOptionPane.showMessageDialog(this, "Database Error.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             } else {
-                // --- REGISTER LOGIC ---
-                if (regDAO.isAlreadyRegistered(currentUser.getUserId(), eventId)) {
-                    JOptionPane.showMessageDialog(this, "You are already registered for this event!", "Duplicate Registration", JOptionPane.ERROR_MESSAGE);
-                    return; 
-                }
-
-                int confirm = JOptionPane.showConfirmDialog(this, "Register for " + eventTitle + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+                // --- NEW SECURE REGISTRATION LOGIC ---
+                int confirm = JOptionPane.showConfirmDialog(this, "Register for " + eventTitle + "?", "Confirm Registration", JOptionPane.YES_NO_OPTION);
+                
                 if (confirm == JOptionPane.YES_OPTION) {
-                    String regId = "R" + (int)(Math.random() * 10000);
-                    
-                    // UPDATED: Removed the Java Date parameter. The DB handles the date.
-                    // If the venue is full, our Stored Procedure blocks it, DAO returns false!
-                    if (regDAO.registerStudent(regId, currentUser.getUserId(), eventId)) {
-                        JOptionPane.showMessageDialog(this, "Successfully Registered!");
-                        loadApprovedEvents(); // Refresh view
+                    String status = regDAO.registerStudentSafe(currentUser.getUserId(), eventId);
+
+                    if (status.equals("SUCCESS")) {
+                        JOptionPane.showMessageDialog(this, "Registration Successful! Your seat is reserved.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        loadApprovedEvents(); // Refresh the table instantly
+                    } else if (status.equals("ALREADY_REGISTERED")) {
+                        JOptionPane.showMessageDialog(this, "You are already registered for this event!", "Notice", JOptionPane.WARNING_MESSAGE);
+                    } else if (status.equals("VENUE_FULL")) {
+                        JOptionPane.showMessageDialog(this, "Registration Failed. The venue has reached maximum capacity.", "Venue Full", JOptionPane.ERROR_MESSAGE);
                     } else {
-                        // THE MAGIC: The Database threw our SQLSTATE 45000 error, and we catch it right here!
-                        JOptionPane.showMessageDialog(this, 
-                            "Registration Failed!\n\nThis venue has reached its maximum capacity. No more seats are available.", 
-                            "Event Full", 
-                            JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "A database error occurred. Please try again later.", "System Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }

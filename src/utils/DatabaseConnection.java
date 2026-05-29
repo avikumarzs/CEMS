@@ -7,9 +7,9 @@ import javax.swing.JOptionPane; // Added for UI popups
 
 public class DatabaseConnection {
     
-    private static final String URL = "jdbc:mysql://localhost:3306/campus_events_db";
-    private static final String USER = "root"; 
-    private static final String PASSWORD = "avi1"; 
+    private static final String URL = "jdbc:mysql://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/cems?sslMode=REQUIRED";
+    private static final String USER = "UVdSiGfT4f26QUZ.root";
+    private static final String PASSWORD = "XXRwQIyd2f9djaD2"; 
 
     public static Connection getConnection() {
         Connection connection = null;
@@ -22,7 +22,7 @@ public class DatabaseConnection {
         } catch (SQLException e) {
             // SMART ERROR: Tell the user the database is down!
             JOptionPane.showMessageDialog(null, 
-                "CRITICAL ERROR: Cannot connect to the database.\nEnsure your MySQL server is running.", 
+                "CRITICAL ERROR: Cannot connect to the cloud database.\nCheck your internet connection or credentials.", 
                 "Server Offline", 
                 JOptionPane.ERROR_MESSAGE);
             e.printStackTrace();
