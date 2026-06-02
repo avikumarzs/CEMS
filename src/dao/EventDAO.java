@@ -6,18 +6,18 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class EventDAO {
 
-    // 1. For Students: Fetch ONLY Approved Events (Includes Real Venue Name)
+    // 1. For Students: Fetch ONLY Approved Events (Includes Real Venue Name & Dynamic Timeline)
     public List<Event> getApprovedEvents() {
         List<Event> eventList = new ArrayList<>();
-        // UPDATED: Added Organizer_ID and Admin_ID to match the new 3NF model
         String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
-                       "WHERE e.Status = 'Scheduled'"; // Note: Using 'Scheduled' based on your SQL dummy data
+                       "WHERE e.Status = 'Scheduled'"; 
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(query);
@@ -28,9 +28,9 @@ public class EventDAO {
                         rs.getString("Event_ID"), 
                         rs.getString("Title"), 
                         rs.getDate("Event_Date"),
-                        rs.getString("Status"), 
+                        getEventTimelineStatus(rs.getDate("Event_Date"), rs.getString("Status")), // Dynamic Math
                         rs.getInt("Current_Registrations"), 
-                        rs.getString("Venue_Name"), // Passing the Location instead of ID for the UI
+                        rs.getString("Venue_Name"), 
                         rs.getString("Organizer_ID"),
                         rs.getString("Admin_ID")
                 ));
@@ -41,10 +41,9 @@ public class EventDAO {
         return eventList;
     }
 
-    // 2. For Organizers: Fetch ONLY their own events (Includes Real Venue Name)
+    // 2. For Organizers: Fetch ONLY their own events (Includes Real Venue Name & Dynamic Timeline)
     public List<Event> getEventsByOrganizer(String organizerId) {
         List<Event> eventList = new ArrayList<>();
-        // UPDATED: Added Organizer_ID and Admin_ID
         String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
                        "WHERE e.Organizer_ID = ?";
@@ -60,7 +59,7 @@ public class EventDAO {
                             rs.getString("Event_ID"), 
                             rs.getString("Title"), 
                             rs.getDate("Event_Date"),
-                            rs.getString("Status"), 
+                            getEventTimelineStatus(rs.getDate("Event_Date"), rs.getString("Status")), // Dynamic Math
                             rs.getInt("Current_Registrations"), 
                             rs.getString("Venue_Name"), 
                             rs.getString("Organizer_ID"),
@@ -77,7 +76,6 @@ public class EventDAO {
     // 3. For Admins: Fetch ONLY Pending events (Includes Real Venue Name)
     public List<Event> getPendingEvents() {
         List<Event> eventList = new ArrayList<>();
-        // UPDATED: Added Organizer_ID and Admin_ID
         String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e JOIN Venue v ON e.Venue_ID = v.Venue_ID " +
                        "WHERE e.Status = 'Pending'";
@@ -91,7 +89,7 @@ public class EventDAO {
                         rs.getString("Event_ID"), 
                         rs.getString("Title"), 
                         rs.getDate("Event_Date"),
-                        rs.getString("Status"), 
+                        rs.getString("Status"), // Stays 'Pending'
                         rs.getInt("Current_Registrations"), 
                         rs.getString("Venue_Name"), 
                         rs.getString("Organizer_ID"),
@@ -189,10 +187,9 @@ public class EventDAO {
         }
     }
 
-    // 8. Get events a specific student is registered for
+    // 8. Get events a specific student is registered for (Includes Real Venue Name & Dynamic Timeline)
     public List<Event> getEventsRegisteredByStudent(String studentId) {
         List<Event> list = new ArrayList<>();
-        // UPDATED: Fetches all required columns to build the Event object and Joins Venue to get the real Location
         String query = "SELECT e.Event_ID, e.Title, e.Event_Date, e.Status, e.Current_Registrations, v.Location AS Venue_Name, e.Organizer_ID, e.Admin_ID " +
                        "FROM Event e " +
                        "JOIN Registration r ON e.Event_ID = r.Event_ID " +
@@ -209,7 +206,7 @@ public class EventDAO {
                             rs.getString("Event_ID"), 
                             rs.getString("Title"), 
                             rs.getDate("Event_Date"),
-                            rs.getString("Status"), 
+                            getEventTimelineStatus(rs.getDate("Event_Date"), rs.getString("Status")), // Dynamic Math
                             rs.getInt("Current_Registrations"), 
                             rs.getString("Venue_Name"), 
                             rs.getString("Organizer_ID"),
@@ -221,5 +218,27 @@ public class EventDAO {
             e.printStackTrace();
         }
         return list;
+    }
+
+    // ====================================================
+    // REPLACES SQL FUNCTION: Get_Event_Timeline_Status
+    // ====================================================
+    private String getEventTimelineStatus(Date eventDate, String currentDbStatus) {
+        // If the admin hasn't approved it yet ('Pending') or it was 'Rejected', preserve that state
+        if (currentDbStatus == null || !currentDbStatus.equals("Scheduled")) {
+            return currentDbStatus; 
+        }
+
+        // If it is an active approved event, mathematically calculate calendar tracking state
+        LocalDate today = LocalDate.now();
+        LocalDate eDate = eventDate.toLocalDate();
+        
+        if (eDate.isAfter(today)) {
+            return "Upcoming";
+        } else if (eDate.isEqual(today)) {
+            return "Ongoing";
+        } else {
+            return "Completed";
+        }
     }
 }
