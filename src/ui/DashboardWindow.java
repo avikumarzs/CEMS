@@ -1,14 +1,16 @@
 package ui;
 
-import dao.EventDAO;
-import dao.RegistrationDAO;
 import models.Event;
 import models.User;
+import utils.HttpUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.List;
 
 public class DashboardWindow extends JFrame {
@@ -17,7 +19,6 @@ public class DashboardWindow extends JFrame {
     private JTable eventTable; 
     private DefaultTableModel tableModel;
     
-    // --- STATE TRACKING ---
     private boolean viewingMyEvents = false; 
     private JLabel pageTitle;
     private JButton mainActionBtn;
@@ -56,7 +57,6 @@ public class DashboardWindow extends JFrame {
         brandingPanel.add(nameLabel);
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
-        // Sidebar Navigation
         JPanel navPanel = new JPanel(new GridLayout(6, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
@@ -64,12 +64,11 @@ public class DashboardWindow extends JFrame {
         JButton browseBtn = createSidebarButton("Browse Events", new Color(108, 117, 125));
         JButton myEventsBtn = createSidebarButton("My Registrations", new Color(108, 117, 125));
         
-        // The dynamic action button (Starts out as Register)
         mainActionBtn = createSidebarButton("Register for Event", new Color(0, 102, 204)); 
         
         navPanel.add(browseBtn);
         navPanel.add(myEventsBtn);
-        navPanel.add(Box.createRigidArea(new Dimension(0, 20))); // Spacer
+        navPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         navPanel.add(mainActionBtn);
         
         sidebar.add(navPanel, BorderLayout.CENTER);
@@ -107,26 +106,22 @@ public class DashboardWindow extends JFrame {
         // ==========================================
         // 3. LOGIC & STATE SWITCHING
         // ==========================================
-        
-        // Tab 1: Browse Events
         browseBtn.addActionListener(e -> {
             viewingMyEvents = false;
             pageTitle.setText("Available Campus Events");
             mainActionBtn.setText("Register for Event");
-            mainActionBtn.setBackground(new Color(0, 102, 204)); // Blue
-            loadApprovedEvents();
+            mainActionBtn.setBackground(new Color(0, 102, 204));
+            loadEvents(HttpUtils.fetchApprovedEvents());
         });
 
-        // Tab 2: My Registrations
         myEventsBtn.addActionListener(e -> {
             viewingMyEvents = true;
             pageTitle.setText("My Registered Events");
             mainActionBtn.setText("Cancel Registration");
-            mainActionBtn.setBackground(new Color(255, 152, 0)); // Amber/Orange warning color
-            loadMyRegisteredEvents();
+            mainActionBtn.setBackground(new Color(255, 152, 0)); 
+            loadEvents(HttpUtils.fetchMyRegisteredEvents(currentUser.getUserId()));
         });
 
-        // The Dynamic Action Button
         mainActionBtn.addActionListener(e -> {
             int selectedRow = eventTable.getSelectedRow();
             if (selectedRow == -1) {
@@ -136,36 +131,34 @@ public class DashboardWindow extends JFrame {
 
             String eventId = (String) tableModel.getValueAt(selectedRow, 0);
             String eventTitle = (String) tableModel.getValueAt(selectedRow, 1);
-            RegistrationDAO regDAO = new RegistrationDAO();
 
             if (viewingMyEvents) {
-                // --- CANCEL REGISTRATION LOGIC ---
                 int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to drop out of " + eventTitle + "?", "Confirm Cancellation", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    // UPDATED: Now triggers our Cancel_Registration stored procedure equivalent in Java!
-                    if (regDAO.cancelRegistration(currentUser.getUserId(), eventId)) {
+                    HttpResponse<String> res = HttpUtils.cancelRegistration(currentUser.getUserId(), eventId);
+                    if (res != null && res.statusCode() == 200) {
                         JOptionPane.showMessageDialog(this, "Registration Cancelled.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                        loadMyRegisteredEvents(); // Refresh view
+                        loadEvents(HttpUtils.fetchMyRegisteredEvents(currentUser.getUserId()));
                     } else {
-                        JOptionPane.showMessageDialog(this, "Database Error.", "Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "System Error.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             } else {
-                // --- NEW SECURE REGISTRATION LOGIC ---
                 int confirm = JOptionPane.showConfirmDialog(this, "Register for " + eventTitle + "?", "Confirm Registration", JOptionPane.YES_NO_OPTION);
-                
                 if (confirm == JOptionPane.YES_OPTION) {
-                    String status = regDAO.registerStudentSafe(currentUser.getUserId(), eventId);
-
-                    if (status.equals("SUCCESS")) {
+                    HttpResponse<String> res = HttpUtils.registerForEvent(currentUser.getUserId(), eventId);
+                    
+                    if (res == null) {
+                        JOptionPane.showMessageDialog(this, "Network Error.", "Error", JOptionPane.ERROR_MESSAGE);
+                    } else if (res.statusCode() == 200) {
                         JOptionPane.showMessageDialog(this, "Registration Successful! Your seat is reserved.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                        loadApprovedEvents(); // Refresh the table instantly
-                    } else if (status.equals("ALREADY_REGISTERED")) {
+                        loadEvents(HttpUtils.fetchApprovedEvents()); 
+                    } else if (res.statusCode() == 409) {
                         JOptionPane.showMessageDialog(this, "You are already registered for this event!", "Notice", JOptionPane.WARNING_MESSAGE);
-                    } else if (status.equals("VENUE_FULL")) {
+                    } else if (res.statusCode() == 403) {
                         JOptionPane.showMessageDialog(this, "Registration Failed. The venue has reached maximum capacity.", "Venue Full", JOptionPane.ERROR_MESSAGE);
                     } else {
-                        JOptionPane.showMessageDialog(this, "A database error occurred. Please try again later.", "System Error", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "A database error occurred.", "System Error", JOptionPane.ERROR_MESSAGE);
                     }
                 }
             }
@@ -176,12 +169,57 @@ public class DashboardWindow extends JFrame {
             new LoginWindow().setVisible(true);
         });
 
-        // Start by loading the default Browse view
-        loadApprovedEvents();
+        loadEvents(HttpUtils.fetchApprovedEvents());
     }
 
-    // --- UI HELPERS ---
+    // ==========================================
+    // 4. API FETCH & PARSE LOGIC
+    // ==========================================
+    private void loadEvents(HttpResponse<String> response) {
+        tableModel.setRowCount(0);
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            if (!json.contains("{")) return; // Empty DB
 
+            // Split JSON array into individual event objects
+            String[] blocks = json.split("},\\{");
+            for (String block : blocks) {
+                String id = extractJsonValue(block, "event_id");
+                String title = extractJsonValue(block, "title");
+                String dateStr = extractJsonValue(block, "event_date");
+                String status = extractJsonValue(block, "status");
+                String regs = extractJsonValue(block, "current_registrations");
+                String venue = extractJsonValue(block, "venue_name");
+
+                if (id != null) {
+                    tableModel.addRow(new Object[]{id, title, dateStr, status, regs, venue});
+                }
+            }
+        }
+    }
+
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        
+        startIndex += searchKey.length();
+        int endIndex;
+        
+        if (json.charAt(startIndex) == '"') {
+            startIndex++; 
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("]", startIndex);
+        }
+        
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
+    }
+
+    // --- STYLING HELPERS ---
     private JButton createSidebarButton(String text, Color bgColor) {
         JButton btn = new JButton(text);
         btn.setBackground(bgColor);
@@ -220,24 +258,5 @@ public class DashboardWindow extends JFrame {
         };
 
         for (int i = 0; i < table.getColumnCount(); i++) table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
-    }
-
-    // --- DATA LOADERS ---
-
-    private void loadApprovedEvents() {
-        tableModel.setRowCount(0); 
-        List<Event> events = new EventDAO().getApprovedEvents();
-        for (Event ev : events) {
-            // Note: Because we updated EventDAO, ev.getVenueId() now actually holds the formatted "Venue Location"!
-            tableModel.addRow(new Object[]{ev.getEventId(), ev.getTitle(), ev.getEventDate(), ev.getStatus(), ev.getCurrentRegistrations(), ev.getVenueId()});
-        }
-    }
-
-    private void loadMyRegisteredEvents() {
-        tableModel.setRowCount(0); 
-        List<Event> events = new EventDAO().getEventsRegisteredByStudent(currentUser.getUserId());
-        for (Event ev : events) {
-            tableModel.addRow(new Object[]{ev.getEventId(), ev.getTitle(), ev.getEventDate(), ev.getStatus(), ev.getCurrentRegistrations(), ev.getVenueId()});
-        }
     }
 }

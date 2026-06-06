@@ -5,16 +5,26 @@ public class User {
     private String name;
     private String email;
     private String role; // Student, Organizer, Admin
-    private String password; // ADDED: To match Password in DB
+    private String password; 
     private String deptId;
 
-    // Full Constructor for Database Retrieval
+    // Legacy Constructor for direct Database Retrieval (6 parameters)
     public User(String userId, String name, String email, String role, String password, String deptId) {
         this.userId = userId;
         this.name = name;
         this.email = email;
         this.role = role;
         this.password = password;
+        this.deptId = deptId;
+    }
+
+    // 🌐 NEW: Secure Web API Constructor (5 parameters - No Password needed!)
+    public User(String userId, String name, String email, String role, String deptId) {
+        this.userId = userId;
+        this.name = name;
+        this.email = email;
+        this.role = role;
+        this.password = null; // We purposefully don't hold the password in the UI memory anymore
         this.deptId = deptId;
     }
 

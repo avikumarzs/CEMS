@@ -43,4 +43,83 @@ public class HttpUtils {
             return null; // Signals a completely drop in network availability
         }
     }
+    /**
+     * Fetches the live list of departments from the cloud via the API.
+     */
+    public static HttpResponse<String> fetchDepartments() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL + "/auth/departments"))
+                    .GET()
+                    .build();
+            return client.send(request, BodyHandlers.ofString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * Sends a secure account creation payload to the API.
+     */
+    public static HttpResponse<String> sendSignupRequest(String userId, String name, String email, String password, String role, String deptId) {
+        // Format deptId securely (handle nulls for Organizers)
+        String deptJson = (deptId == null || deptId.isEmpty()) ? "null" : "\"" + deptId + "\"";
+        
+        String jsonPayload = String.format("{\"userId\":\"%s\",\"name\":\"%s\",\"email\":\"%s\",\"password\":\"%s\",\"role\":\"%s\",\"deptId\":%s}", 
+                userId, name, email, password, role, deptJson);
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL + "/auth/signup"))
+                    .header("Content-Type", "application/json")
+                    .POST(BodyPublishers.ofString(jsonPayload))
+                    .build();
+            return client.send(request, BodyHandlers.ofString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    public static HttpResponse<String> fetchApprovedEvents() {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL + "/events/approved"))
+                    .GET()
+                    .build();
+            return client.send(request, BodyHandlers.ofString());
+        } catch (Exception e) { return null; }
+    }
+
+    public static HttpResponse<String> fetchMyRegisteredEvents(String studentId) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL + "/events/student/" + studentId))
+                    .GET()
+                    .build();
+            return client.send(request, BodyHandlers.ofString());
+        } catch (Exception e) { return null; }
+    }
+
+    public static HttpResponse<String> registerForEvent(String studentId, String eventId) {
+        String jsonPayload = String.format("{\"studentId\":\"%s\",\"eventId\":\"%s\"}", studentId, eventId);
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL + "/events/register"))
+                    .header("Content-Type", "application/json")
+                    .POST(BodyPublishers.ofString(jsonPayload))
+                    .build();
+            return client.send(request, BodyHandlers.ofString());
+        } catch (Exception e) { return null; }
+    }
+
+    public static HttpResponse<String> cancelRegistration(String studentId, String eventId) {
+        String jsonPayload = String.format("{\"studentId\":\"%s\",\"eventId\":\"%s\"}", studentId, eventId);
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(BASE_URL + "/events/cancel"))
+                    .header("Content-Type", "application/json")
+                    .POST(BodyPublishers.ofString(jsonPayload))
+                    .build();
+            return client.send(request, BodyHandlers.ofString());
+        } catch (Exception e) { return null; }
+    }
 }

@@ -1,11 +1,11 @@
 package ui;
 
-import dao.UserDAO;
-import dao.DepartmentDAO;
-import models.Department;
+import utils.HttpUtils;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.net.http.HttpResponse;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SignupWindow extends JFrame {
@@ -69,7 +69,6 @@ public class SignupWindow extends JFrame {
         studentToggleBtn = new JButton("Student Sign-Up");
         organizerToggleBtn = new JButton("Organizer Sign-Up");
         
-        // Initial State (Student is active by default)
         setToggleActive(studentToggleBtn, organizerToggleBtn);
         
         togglePanel.add(studentToggleBtn);
@@ -94,22 +93,38 @@ public class SignupWindow extends JFrame {
         gbc.gridy = 10; gbc.insets = new Insets(0, 0, 15, 0);
         mainPanel.add(passField, gbc);
 
-        // --- DEPARTMENT DROPDOWN (Dynamic Database Fetch!) ---
+        // --- DEPARTMENT DROPDOWN (NEW 3-TIER API FETCH) ---
         deptLabel = new JLabel("Department");
         deptLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         deptLabel.setForeground(Color.GRAY);
         gbc.gridy = 11; gbc.insets = new Insets(5, 0, 5, 0);
         mainPanel.add(deptLabel, gbc);
 
-        // Fetch live departments from the Database
-        List<Department> dbDepartments = new DepartmentDAO().getAllDepartments();
-        String[] deptArray = new String[dbDepartments.size()];
-        for (int i = 0; i < dbDepartments.size(); i++) {
-            Department d = dbDepartments.get(i);
-            deptArray[i] = d.getDeptId() + " - " + d.getName();
+        // Fetch and parse the live JSON from Spring Boot
+        HttpResponse<String> deptRes = HttpUtils.fetchDepartments();
+        List<String> deptList = new ArrayList<>();
+        
+        // --- NEW: Professional default placeholder ---
+        deptList.add("--- Select a Department ---");
+        
+        if (deptRes != null && deptRes.statusCode() == 200) {
+            String json = deptRes.body();
+            String[] blocks = json.split("}"); 
+            for (String block : blocks) {
+                if (block.contains("dept_id")) {
+                    String id = extractJsonValue(block + "}", "dept_id");
+                    String deptName = extractJsonValue(block + "}", "name");
+                    if (id != null && deptName != null) {
+                        deptList.add(id + " - " + deptName);
+                    }
+                }
+            }
+        } else {
+            // Cleaner error fallback
+            deptList.add("Unavailable - System Error");
         }
 
-        deptBox = new JComboBox<>(deptArray);
+        deptBox = new JComboBox<>(deptList.toArray(new String[0]));
         deptBox.setPreferredSize(new Dimension(0, 45));
         deptBox.setFont(new Font("SansSerif", Font.PLAIN, 15));
         gbc.gridy = 12; gbc.insets = new Insets(0, 0, 25, 0);
@@ -161,7 +176,6 @@ public class SignupWindow extends JFrame {
         signupBtn.addActionListener(e -> handleSignup());
     }
 
-    // --- HELPER: Styles the toggle buttons dynamically ---
     private void setToggleActive(JButton activeBtn, JButton inactiveBtn) {
         activeBtn.setBackground(new Color(0, 102, 204));
         activeBtn.setForeground(Color.WHITE);
@@ -190,6 +204,9 @@ public class SignupWindow extends JFrame {
         return field;
     }
 
+    // ==========================================
+    // 🌐 NEW 3-TIER API LOGIC
+    // ==========================================
     private void handleSignup() {
         String name = nameField.getText().trim();
         String email = emailField.getText().trim();
@@ -197,42 +214,68 @@ public class SignupWindow extends JFrame {
         String userId = "U" + (int)(Math.random() * 10000);
         String deptId = null;
 
-        // 1. Basic Empty Check
         if(name.isEmpty() || email.isEmpty() || pass.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please fill in all required fields to continue.", "Incomplete Form", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // 2. REGEX: Strict Email Format Validation
         String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
         if (!email.matches(emailRegex)) {
             JOptionPane.showMessageDialog(this, "Please enter a valid email address.\nFormat: user@domain.com", "Invalid Email", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // 3. Security: Password Length Validation
         if (pass.length() < 6) {
             JOptionPane.showMessageDialog(this, "For your security, your password must be at least 6 characters long.", "Weak Password", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // 4. Role-Based Department Logic
         if (selectedRole.equals("Student")) {
-            if (deptBox.getSelectedItem() == null) {
-                JOptionPane.showMessageDialog(this, "No departments available. Please contact an Administrator.", "System Error", JOptionPane.ERROR_MESSAGE);
+            // Block if they leave it on the placeholder (Index 0) or if the DB failed
+            if (deptBox.getSelectedIndex() == 0 || deptBox.getSelectedItem().toString().contains("Unavailable")) {
+                JOptionPane.showMessageDialog(this, "Please select a valid department from the list.", "Missing Department", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             String selectedDept = (String) deptBox.getSelectedItem();
             deptId = selectedDept.split(" - ")[0]; 
         }
 
-        // 5. Send to Database
-        if(new UserDAO().registerUser(userId, name, email, pass, selectedRole, deptId)) {
+        // Send HTTP Request instead of Direct DB logic
+        HttpResponse<String> response = HttpUtils.sendSignupRequest(userId, name, email, pass, selectedRole, deptId);
+
+        if (response == null) {
+            JOptionPane.showMessageDialog(this, "Cannot connect to the server. Please ensure the backend API is running.", "Network Error", JOptionPane.ERROR_MESSAGE);
+        } else if (response.statusCode() == 201 || response.statusCode() == 200) {
             JOptionPane.showMessageDialog(this, "Welcome aboard, " + name + "! Your account is ready.", "Success", JOptionPane.INFORMATION_MESSAGE);
             this.dispose();
             new LoginWindow().setVisible(true);
-        } else {
+        } else if (response.statusCode() == 409) {
             JOptionPane.showMessageDialog(this, "An account with '" + email + "' already exists.\nPlease sign in instead.", "Account Exists", JOptionPane.ERROR_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Server encountered an error. Status Code: " + response.statusCode(), "System Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    // ==========================================
+    // LIGHTWEIGHT JSON PARSER UTILITY
+    // ==========================================
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        
+        startIndex += searchKey.length();
+        int endIndex;
+        
+        if (json.charAt(startIndex) == '"') {
+            startIndex++; 
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+        }
+        
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
     }
 }

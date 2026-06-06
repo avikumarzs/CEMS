@@ -1,10 +1,11 @@
 package ui;
 
-import dao.UserDAO;
 import models.User;
+import utils.HttpUtils; // NEW: Importing our Web API bridge
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -22,7 +23,7 @@ public class LoginWindow extends JFrame {
     private JLabel profileWelcomeLabel = new JLabel("", SwingConstants.CENTER);
     
     private JPanel profileGrid;
-    private JButton backToProfilesBtn; // NEW: We track this so we can hide it dynamically!
+    private JButton backToProfilesBtn; 
     
     private String selectedProfileEmail = "";
     private Preferences prefs = Preferences.userNodeForPackage(LoginWindow.class);
@@ -38,7 +39,6 @@ public class LoginWindow extends JFrame {
         cardLayout = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
 
-        // All three screens are now defined below
         mainCardPanel.add(createProfileScreen(), "PROFILES");
         mainCardPanel.add(createStandardLoginScreen(), "STANDARD_LOGIN");
         mainCardPanel.add(createPasswordScreen(), "PASSWORD_ENTRY");
@@ -71,11 +71,9 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
         panel.add(title, gbc);
 
-        // Initialize the profile grid
         profileGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         profileGrid.setBackground(Color.WHITE);
         
-        // Load the profiles into the grid
         refreshProfiles();
 
         gbc.gridy = 3; gbc.weighty = 0.5;
@@ -108,7 +106,6 @@ public class LoginWindow extends JFrame {
         profileGrid.revalidate();
         profileGrid.repaint();
 
-        // --- FIX: Hide the back button if no profiles exist! ---
         if (savedData.isEmpty()) {
             if (backToProfilesBtn != null) backToProfilesBtn.setVisible(false);
             cardLayout.show(mainCardPanel, "STANDARD_LOGIN");
@@ -213,7 +210,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
         formContainer.add(title, gbc);
 
-        // Inputs
         JLabel eLbl = new JLabel("Email Address"); eLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
         gbc.gridy = 3; gbc.insets = new Insets(5, 0, 2, 0); formContainer.add(eLbl, gbc);
         styleField(standardEmailField);
@@ -232,7 +228,6 @@ public class LoginWindow extends JFrame {
         styleFooterBtn(signupLink);
         gbc.gridy = 8; formContainer.add(signupLink, gbc);
 
-        // --- FIX: The button is always added, but we dynamically toggle its visibility! ---
         backToProfilesBtn = new JButton("← Back to saved profiles");
         styleFooterBtn(backToProfilesBtn);
         backToProfilesBtn.setVisible(!prefs.get("saved_users", "").isEmpty());
@@ -286,35 +281,87 @@ public class LoginWindow extends JFrame {
     }
 
     // ==========================================
-    // LOGIC & STYLING
+    // 🌐 NEW 3-TIER API LOGIC
     // ==========================================
     private void executeLogin(String email, String password) {
-        // 1. Better Empty Field Validation
         if (email.trim().isEmpty() || password.trim().isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please enter both your email and password to sign in.", "Missing Credentials", JOptionPane.WARNING_MESSAGE);
             return;
         }
         
-        // 2. Prevent unnecessary database calls if email format is obviously wrong
         if (!email.contains("@")) {
             JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Format", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        User user = new UserDAO().authenticateUser(email, password);
-        
-        if (user != null) {
+        // 1. Send HTTP request to Spring Boot instead of direct DB query
+        HttpResponse<String> response = HttpUtils.sendLoginRequest(email, password);
+
+        // 2. Handle Network Drop
+        if (response == null) {
+            JOptionPane.showMessageDialog(this, "Cannot connect to the server. Please ensure the backend API is running.", "Network Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // 3. Handle Valid Authentication (200 OK)
+        if (response.statusCode() == 200) {
+            String json = response.body();
+            
+            // Extract attributes from JSON string based on your lowercase DB column names
+            String id = extractJsonValue(json, "user_id");
+            String name = extractJsonValue(json, "name");
+            String role = extractJsonValue(json, "role");
+            String deptId = extractJsonValue(json, "dept_id");
+
+            User user = new User(id, name, email, role, deptId);
+
             saveUser(user.getName(), email);
             this.dispose();
-            if (user.getRole().equals("Admin")) new AdminDashboard(user).setVisible(true);
-            else if (user.getRole().equals("Organizer")) new OrganizerDashboard(user).setVisible(true);
+
+            // Route dynamically based on payload role
+            if ("Admin".equalsIgnoreCase(user.getRole())) new AdminDashboard(user).setVisible(true);
+            else if ("Organizer".equalsIgnoreCase(user.getRole())) new OrganizerDashboard(user).setVisible(true);
             else new DashboardWindow(user).setVisible(true);
-        } else {
-            // 3. Professional Rejection Message
-            JOptionPane.showMessageDialog(this, "We couldn't find an account matching those credentials.\nPlease check your email and password and try again.", "Authentication Failed", JOptionPane.ERROR_MESSAGE);
+
+        } 
+        // 4. Handle Rejected Authentication (401 Unauthorized)
+        else if (response.statusCode() == 401) {
+            JOptionPane.showMessageDialog(this, "We couldn't find an account matching those credentials.\nPlease check entered credentials.", "Authentication Failed", JOptionPane.ERROR_MESSAGE);
+        } 
+        // 5. Catch-all for 500 Server Errors
+        else {
+            JOptionPane.showMessageDialog(this, "Server encountered an error. Status Code: " + response.statusCode(), "System Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
+    // ==========================================
+    // LIGHTWEIGHT JSON PARSER UTILITY
+    // ==========================================
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null; // Key not found
+        
+        startIndex += searchKey.length();
+        int endIndex;
+        
+        // If the value is a String, it starts with quotes
+        if (json.charAt(startIndex) == '"') {
+            startIndex++; // skip opening quote
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            // It's null or a number
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+        }
+        
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
+    }
+
+    // ==========================================
+    // STYLING HELPERS
+    // ==========================================
     private void saveUser(String name, String email) {
         String saved = prefs.get("saved_users", "");
         String entry = name + ":" + email;
