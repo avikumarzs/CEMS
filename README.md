@@ -1,15 +1,15 @@
 # 🎓 CEMS - Campus Event Management System
 
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![MySQL](https://img.shields.io/badge/MySQL-005C84?style=for-the-badge&logo=mysql&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
 ![TiDB](https://img.shields.io/badge/TiDB_Cloud-3139E0?style=for-the-badge&logo=pingcap&logoColor=white)
-![Swing](https://img.shields.io/badge/Java_Swing-007396?style=for-the-badge&logo=java&logoColor=white)
+![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)
 
 ## 📖 About the Project
 
-**CEMS** is a robust, cloud-connected desktop application designed to streamline the planning, approval, and registration of university events. Built with a focus on enterprise-grade architecture, CEMS solves the chaos of manual campus scheduling by providing distinct, secure workflows for Students, Event Organizers, and System Administrators.
+**CEMS** is a robust, cloud-connected application designed to streamline the planning, approval, and registration of university events. Built with a focus on enterprise-grade architecture, CEMS solves the chaos of manual campus scheduling by providing distinct, secure workflows for Students, Event Organizers, and System Administrators.
 
-Rather than relying on a local database, CEMS is fully integrated with **TiDB Cloud**, allowing seamless, real-time data synchronization across any machine running the application.
+This project operates on a **complete 3-tier distributed architecture**, utilizing a Java desktop client that communicates via a REST API to a cloud-hosted Spring Boot server, fully integrated with a normalized TiDB Cloud database.
 
 ## ✨ Key Features
 
@@ -23,17 +23,29 @@ Rather than relying on a local database, CEMS is fully integrated with **TiDB Cl
 * **Students:** Can browse a live feed of approved campus events, register for open seats, and manage their personal schedules.
 
 ### 🛡️ Enterprise-Grade Security & Validation
-* **Transactional Integrity:** Utilizes raw JDBC Transactions (`conn.setAutoCommit(false)`) to ensure that seat-capacity math and student registrations either succeed together or roll back completely, preventing data corruption.
-* **Overbooking Prevention:** Database-driven capacity checks mathematically block users from registering if a venue is full.
-* **Strict Frontend Validation:** Utilizes Regular Expressions (Regex) to validate email formats, enforce strict ID structures (e.g., `E001`), and block illogical inputs (like scheduling events in the past).
+* **Cloud-Synced Integrity:** All transactions are handled securely by the Spring Boot REST API, ensuring that seat-capacity math and student registrations never result in data corruption or overbooking.
+* **Strict Validation:** Utilizes Regular Expressions (Regex) to validate email formats, enforce strict ID structures, and block illogical inputs.
 
 ## 🛠️ Tech Stack
 
-* **Frontend:** Java Swing (AWT, CardLayout, GridBagLayout)
-* **Backend:** Core Java (JDK 17+)
+* **Frontend Client:** Java Swing (AWT, CardLayout, GridBagLayout)
+* **Backend API:** Spring Boot 3 (Java 21, REST APIs, Dockerized)
 * **Database:** TiDB Serverless (MySQL 8.0 Compatible)
-* **Architecture:** DAO (Data Access Object) Design Pattern
-* **Connectivity:** JDBC (Java Database Connectivity)
+* **Cloud Infrastructure:** Render (API Hosting) & GitHub Releases (Client Distribution)
+
+## 🚀 Quick Start (No Setup Required)
+
+You do not need to build this project from source or configure a local database to test it. The backend API is fully deployed in the cloud.
+
+1. **Download the Client:** [Click here to download the latest `.jar` file](LINK_TO_YOUR_GITHUB_RELEASE_HERE)
+2. **Prerequisites:** Ensure **Java 17+** is installed on your system.
+3. **Run the Application:**
+
+Open your terminal and execute the following command:
+```bash
+java -jar CEMS-Client-v1.jar
+```
+*(Alternatively, double-click the `.jar` file if your OS has Java associated with executable JARs).*
 
 ## 🗄️ Database Architecture
 
@@ -44,43 +56,11 @@ The system utilizes a strictly normalized **3NF Relational Database Schema**:
 * `Event` (Tracks status: Pending, Approved, Completed)
 * `Registration` (The associative entity bridging Students and Events)
 
-## 🚀 Installation & Setup
-
-### Prerequisites
-* **Java Development Kit (JDK):** Version 11 or higher.
-* **MySQL Connector/J:** Required for database connectivity.
-* **IDE:** IntelliJ IDEA, Eclipse, or VS Code.
-
-### Running Locally
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/yourusername/CEMS-Campus-Events.git](https://github.com/yourusername/CEMS-Campus-Events.git)
-   ```
-2. **Add Dependencies:**
-   * Download the `mysql-connector-j.jar` file.
-   * Add it to your project's build path/dependencies in your IDE.
-3. **Configure Database:**
-   * Create a free cluster on [TiDB Cloud](https://tidbcloud.com/).
-   * Execute the provided `database_schema.sql` script via MySQL Workbench to build the tables.
-4. **Update Connection String:**
-   * Navigate to `src/utils/DatabaseConnection.java`.
-   * Inject your TiDB Host, Username, and Password.
-5. **Compile and Run:**
-   * Execute `Main.java` to launch the application.
-
-## 📸 Screenshots
-
-*(Note: Add your actual screenshots here once you upload them to your repo!)*
-
-| Login Profiles | Student Dashboard | Admin Approval Panel |
-| :---: | :---: | :---: |
-| <img src="link_to_image" width="250"/> | <img src="link_to_image" width="250"/> | <img src="link_to_image" width="250"/> |
-
 ## 🛣️ Future Scope (Roadmap)
 
-- [ ] **Phase 2:** Migrate from 2-Tier architecture to a 3-Tier architecture by wrapping the database in a **Node.js (Express)** or **Spring Boot** Web API.
-- [ ] **Phase 3:** Introduce JWT (JSON Web Tokens) for stateless authentication.
-- [ ] **Phase 4:** Develop a companion Android application for students using Kotlin.
+- [ ] **Phase 2:** Introduce JWT (JSON Web Tokens) for stateless authentication between the Swing client and Spring Boot API.
+- [ ] **Phase 3:** Develop a companion Android application for students using Kotlin, integrating with the existing backend.
+- [ ] **Phase 4:** Implement an AI-driven smart recommendation engine to suggest events to students based on their department and registration history.
 
 ---
 *Conceptualized and developed as an enterprise architecture showcase.*
