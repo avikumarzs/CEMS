@@ -37,13 +37,13 @@ This project operates on a **complete 3-tier distributed architecture**, utilizi
 
 You do not need to build this project from source or configure a local database to test it. The backend API is fully deployed in the cloud.
 
-1. **Download the Client:** [Click here to download the latest `.jar` file](https://github.com/avikumarzs/CEMS/releases/tag/v1.0)
+1. **Download the Client:** [Click here to download the latest `.jar` file](Link yet to be released.)
 2. **Prerequisites:** Ensure **Java 17+** is installed on your system.
 3. **Run the Application:**
 
 Open your terminal and execute the following command:
 ```bash
-java -jar CEMS-Client-v1.jar
+java -jar CEMS.jar
 ```
 *(Alternatively, double-click the `.jar` file if your OS has Java associated with executable JARs).*
 
