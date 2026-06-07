@@ -15,7 +15,7 @@ public class HttpUtils {
     private static final String BASE_URL = "https://cems-api.onrender.com";
     
     private static final HttpClient client = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
+            .connectTimeout(Duration.ofSeconds(65))
             .build();
 
     /**
