@@ -11,7 +11,8 @@ import java.time.Duration;
 public class HttpUtils {
 
     // Target your local Spring Boot middleware pipeline
-    private static final String BASE_URL = "http://127.0.0.1:8080/api";
+    // Switch from localhost to your live production API
+    private static final String BASE_URL = "https://cems-api.onrender.com";
     
     private static final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
