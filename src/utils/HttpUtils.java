@@ -12,7 +12,7 @@ public class HttpUtils {
 
     // Target your local Spring Boot middleware pipeline
     // Switch from localhost to your live production API
-    private static final String BASE_URL = "https://cems-api.onrender.com";
+    private static final String BASE_URL = "https://cems-api.onrender.com/api";
     
     private static final HttpClient client = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(65))
@@ -37,7 +37,8 @@ public class HttpUtils {
                     .build();
 
             // Fire request over the local wire and return the web server response package
-            return client.send(request, BodyHandlers.ofString());
+return client.send(request, BodyHandlers.ofString());
+            
 
         } catch (Exception e) {
             e.printStackTrace();
