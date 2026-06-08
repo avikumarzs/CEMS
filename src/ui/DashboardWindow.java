@@ -1,6 +1,5 @@
 package ui;
 
-import models.Event;
 import models.User;
 import utils.HttpUtils;
 
@@ -10,8 +9,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
-import java.util.List;
 
 public class DashboardWindow extends JFrame {
 

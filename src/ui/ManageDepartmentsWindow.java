@@ -1,7 +1,7 @@
 package ui;
 
-import dao.DepartmentDAO;
-import models.Department;
+import utils.HttpUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -9,18 +9,16 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.List;
+import java.net.http.HttpResponse;
 
 public class ManageDepartmentsWindow extends JFrame {
 
     private JTextField idField, nameField;
     private JTable deptTable;
     private DefaultTableModel tableModel;
-    private DepartmentDAO deptDAO = new DepartmentDAO();
 
     public ManageDepartmentsWindow() {
         setTitle("CEMS - Manage Departments");
-        // FIX 1: Slightly wider window to give the table and fields more breathing room
         setSize(850, 650);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -37,7 +35,6 @@ public class ManageDepartmentsWindow extends JFrame {
         iconLabel.setFont(new Font("SansSerif", Font.PLAIN, 48));
         
         JLabel sideTitle = new JLabel("<html>Manage<br>Departments</html>");
-        // FIX 2: Scaled down font size from 32 to 28 so "Departments" stops overflowing
         sideTitle.setFont(new Font("SansSerif", Font.BOLD, 28));
         sideTitle.setForeground(Color.WHITE);
 
@@ -57,7 +54,7 @@ public class ManageDepartmentsWindow extends JFrame {
         mainContent.setBorder(new EmptyBorder(30, 40, 30, 40));
 
         // Top Form: Add Department
-        JPanel addPanel = new JPanel(new GridLayout(2, 2, 20, 10)); // Increased horizontal gap to 20
+        JPanel addPanel = new JPanel(new GridLayout(2, 2, 20, 10)); 
         addPanel.setBackground(Color.WHITE);
         
         addPanel.add(createLabel("Department ID (e.g., CS01)"));
@@ -69,9 +66,8 @@ public class ManageDepartmentsWindow extends JFrame {
         addPanel.add(nameField);
 
         JButton addBtn = new JButton("Add Department");
-        stylePrimaryButton(addBtn, new Color(40, 167, 69)); // Green
+        stylePrimaryButton(addBtn, new Color(40, 167, 69)); 
         
-        // FIX 3: Rebuilt the top container to stack the button nicely underneath the fields
         JPanel topContainer = new JPanel(new BorderLayout(0, 15));
         topContainer.setBackground(Color.WHITE);
         topContainer.add(addPanel, BorderLayout.CENTER);
@@ -94,7 +90,7 @@ public class ManageDepartmentsWindow extends JFrame {
         mainContent.add(scrollPane, BorderLayout.CENTER);
 
         JButton deleteBtn = new JButton("Delete Department");
-        stylePrimaryButton(deleteBtn, new Color(220, 53, 69)); // Red
+        stylePrimaryButton(deleteBtn, new Color(220, 53, 69)); 
         
         JPanel bottomContainer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         bottomContainer.setBackground(Color.WHITE);
@@ -106,6 +102,7 @@ public class ManageDepartmentsWindow extends JFrame {
         // --- ACTIONS ---
         loadDepartments();
 
+        // --- UPDATED: Route Addition Through API ---
         addBtn.addActionListener(e -> {
             String id = idField.getText().trim();
             String name = nameField.getText().trim();
@@ -115,16 +112,21 @@ public class ManageDepartmentsWindow extends JFrame {
                 return;
             }
 
-            if (deptDAO.insertDepartment(id, name)) {
+            HttpResponse<String> response = HttpUtils.createDepartment(id, name);
+            
+            if (response != null && response.statusCode() == 201) {
                 JOptionPane.showMessageDialog(this, "Department added successfully!");
                 idField.setText("");
                 nameField.setText("");
-                loadDepartments(); // Refresh Table
-            } else {
+                loadDepartments(); 
+            } else if (response != null && response.statusCode() == 409) {
                 JOptionPane.showMessageDialog(this, "Error adding department. ID might already exist.", "Error", JOptionPane.ERROR_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Network Error. Could not connect to API.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
+        // --- UPDATED: Route Deletion Through API ---
         deleteBtn.addActionListener(e -> {
             int row = deptTable.getSelectedRow();
             if (row == -1) {
@@ -140,22 +142,62 @@ public class ManageDepartmentsWindow extends JFrame {
                 "Confirm Delete", JOptionPane.YES_NO_OPTION);
                 
             if (confirm == JOptionPane.YES_OPTION) {
-                if (deptDAO.deleteDepartment(id)) {
+                HttpResponse<String> response = HttpUtils.deleteDepartment(id);
+                
+                if (response != null && response.statusCode() == 200) {
                     JOptionPane.showMessageDialog(this, "Department deleted successfully.");
-                    loadDepartments(); // Refresh Table
+                    loadDepartments(); 
                 } else {
-                    JOptionPane.showMessageDialog(this, "Database Error.", "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Database or Network Error.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
     }
 
+    // --- UPDATED: Fetch Departments from API ---
     private void loadDepartments() {
         tableModel.setRowCount(0);
-        List<Department> depts = deptDAO.getAllDepartments();
-        for (Department d : depts) {
-            tableModel.addRow(new Object[]{d.getDeptId(), d.getName()});
+        HttpResponse<String> response = HttpUtils.fetchAllDepartments();
+        
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            for (String block : json.split("}")) {
+                if (block.contains("Dept_ID") || block.contains("dept_id")) {
+                    
+                    String id = extractJsonValue(block + "}", "Dept_ID");
+                    if (id == null) id = extractJsonValue(block + "}", "dept_id");
+
+                    String name = extractJsonValue(block + "}", "Name");
+                    if (name == null) name = extractJsonValue(block + "}", "name");
+
+                    if (id != null && name != null) {
+                        tableModel.addRow(new Object[]{id, name});
+                    }
+                }
+            }
         }
+    }
+
+    // --- JSON PARSER UTILITY ---
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        
+        startIndex += searchKey.length();
+        int endIndex;
+        
+        if (json.charAt(startIndex) == '"') {
+            startIndex++; 
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("]", startIndex);
+        }
+        
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
     }
 
     // --- STYLING HELPERS ---

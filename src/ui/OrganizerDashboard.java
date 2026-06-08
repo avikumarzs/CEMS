@@ -1,16 +1,14 @@
 package ui;
 
-import dao.EventDAO;
-import dao.VenueDAO;
-import models.Event;
-import models.Venue;
 import models.User;
+import utils.HttpUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.List;
+import java.net.http.HttpResponse;
 
 public class OrganizerDashboard extends JFrame {
 
@@ -125,31 +123,69 @@ public class OrganizerDashboard extends JFrame {
         loadMyEvents(); 
     }
 
-    // CRITICAL FIX: This MUST be public so AddEventWindow can trigger it!
+    // --- UPDATED: Fetch Organizer Events from API ---
     public void loadMyEvents() {
         viewingVenues = false;
         String[] cols = {"Event ID", "Title", "Date", "Status", "Registrations", "Venue"};
         tableModel.setColumnIdentifiers(cols);
         tableModel.setRowCount(0);
-        List<Event> events = new EventDAO().getEventsByOrganizer(currentUser.getUserId());
-        for (Event ev : events) {
-            tableModel.addRow(new Object[]{ev.getEventId(), ev.getTitle(), ev.getEventDate(), ev.getStatus(), ev.getCurrentRegistrations(), ev.getVenueId()});
+        
+        HttpResponse<String> response = HttpUtils.fetchOrganizerEvents(currentUser.getUserId());
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            for (String block : json.split("}")) {
+                if (block.contains("event_id") || block.contains("Event_ID")) {
+                    
+                    String id = extractJsonValue(block + "}", "event_id");
+                    if (id == null) id = extractJsonValue(block + "}", "Event_ID");
+
+                    String title = extractJsonValue(block + "}", "title");
+                    if (title == null) title = extractJsonValue(block + "}", "Title");
+
+                    String date = extractJsonValue(block + "}", "event_date");
+                    if (date == null) date = extractJsonValue(block + "}", "Event_Date");
+
+                    String status = extractJsonValue(block + "}", "status");
+                    if (status == null) status = extractJsonValue(block + "}", "Status");
+
+                    String regs = extractJsonValue(block + "}", "current_registrations");
+                    if (regs == null) regs = extractJsonValue(block + "}", "Current_Registrations");
+
+                    String venue = extractJsonValue(block + "}", "venue_name");
+                    if (venue == null) venue = extractJsonValue(block + "}", "Venue_Name");
+
+                    if (id != null) {
+                        tableModel.addRow(new Object[]{id, title, date, status, regs, venue});
+                    }
+                }
+            }
         }
     }
 
     private void loadVenues() {
-        // UPDATED: Adjusted columns to match our 3NF Database
         String[] cols = {"Venue ID", "Location", "Capacity", "Status"};
         tableModel.setColumnIdentifiers(cols);
         tableModel.setRowCount(0);
         
-        // UPDATED: Used getAvailableVenues() to match our DAO, and v.getLocation() to match our Model
-        List<Venue> venues = new VenueDAO().getAvailableVenues();
-        for (Venue v : venues) {
-            tableModel.addRow(new Object[]{v.getVenueId(), v.getLocation(), v.getCapacity(), v.getStatus()});
+        HttpResponse<String> response = HttpUtils.fetchAvailableVenues();
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            for (String block : json.split("}")) {
+                if (block.contains("Venue_ID")) {
+                    String id = extractJsonValue(block + "}", "Venue_ID");
+                    String location = extractJsonValue(block + "}", "Location");
+                    String capacity = extractJsonValue(block + "}", "Capacity");
+                    String status = extractJsonValue(block + "}", "Status");
+                    
+                    if (id != null) {
+                        tableModel.addRow(new Object[]{id, location, capacity, status});
+                    }
+                }
+            }
         }
     }
 
+    // --- UPDATED: Route Deletion Through API ---
     private void handleDelete() {
         int row = mainTable.getSelectedRow();
         if (row == -1) {
@@ -158,10 +194,32 @@ public class OrganizerDashboard extends JFrame {
         }
         String id = (String) tableModel.getValueAt(row, 0);
         if (JOptionPane.showConfirmDialog(this, "Cancel event?", "Confirm", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-            if (new EventDAO().deleteEvent(id)) {
+            
+            HttpResponse<String> response = HttpUtils.deleteEvent(id);
+            if (response != null && response.statusCode() == 200) {
                 loadMyEvents();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to delete event.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
+    }
+
+    // --- JSON PARSER UTILITY ---
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        startIndex += searchKey.length();
+        int endIndex;
+        if (json.charAt(startIndex) == '"') {
+            startIndex++;
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+        }
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
     }
 
     private JButton createSidebarButton(String text, Color bgColor) {

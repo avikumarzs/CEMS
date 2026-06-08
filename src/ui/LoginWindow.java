@@ -1,7 +1,7 @@
 package ui;
 
 import models.User;
-import utils.HttpUtils; // NEW: Importing our Web API bridge
+import utils.HttpUtils;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -16,42 +16,43 @@ public class LoginWindow extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainCardPanel;
 
-    // Class fields initialized for persistence across screens
+    // Form fields
     private JTextField standardEmailField = new JTextField();
     private JPasswordField standardPasswordField = new JPasswordField();
     private JPasswordField profilePasswordField = new JPasswordField();
     private JLabel profileWelcomeLabel = new JLabel("", SwingConstants.CENTER);
-    
     private JPanel profileGrid;
-    private JButton backToProfilesBtn; 
-    
+    private JButton backToProfilesBtn;
     private String selectedProfileEmail = "";
     private Preferences prefs = Preferences.userNodeForPackage(LoginWindow.class);
 
+    // --- OBJECTIVE 1 & 2: Class-level button and status label references ---
+    // Needed so executeLogin() can disable/enable them from outside their creating methods.
+    private JButton standardLoginBtn = new JButton("Sign In to Account");
+    private JButton profileLoginBtn  = new JButton("Sign In");
+    private JLabel  standardStatusLabel = makeStatusLabel();
+    private JLabel  profileStatusLabel  = makeStatusLabel();
+
     public LoginWindow() {
         setTitle("CEMS - System Login");
-        setSize(650, 700); 
+        setSize(650, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
         setLayout(new BorderLayout());
 
-        cardLayout = new CardLayout();
+        cardLayout   = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
 
-        mainCardPanel.add(createProfileScreen(), "PROFILES");
+        mainCardPanel.add(createProfileScreen(),       "PROFILES");
         mainCardPanel.add(createStandardLoginScreen(), "STANDARD_LOGIN");
-        mainCardPanel.add(createPasswordScreen(), "PASSWORD_ENTRY");
+        mainCardPanel.add(createPasswordScreen(),      "PASSWORD_ENTRY");
 
         add(mainCardPanel, BorderLayout.CENTER);
 
-        // Auto-routing based on saved data
         String savedUsers = prefs.get("saved_users", "");
-        if (savedUsers.isEmpty()) {
-            cardLayout.show(mainCardPanel, "STANDARD_LOGIN");
-        } else {
-            cardLayout.show(mainCardPanel, "PROFILES");
-        }
+        if (savedUsers.isEmpty()) cardLayout.show(mainCardPanel, "STANDARD_LOGIN");
+        else                      cardLayout.show(mainCardPanel, "PROFILES");
     }
 
     // ==========================================
@@ -73,7 +74,6 @@ public class LoginWindow extends JFrame {
 
         profileGrid = new JPanel(new FlowLayout(FlowLayout.CENTER, 30, 0));
         profileGrid.setBackground(Color.WHITE);
-        
         refreshProfiles();
 
         gbc.gridy = 3; gbc.weighty = 0.5;
@@ -94,14 +94,14 @@ public class LoginWindow extends JFrame {
     private void refreshProfiles() {
         profileGrid.removeAll();
         String savedData = prefs.get("saved_users", "");
-        
+
         if (!savedData.isEmpty()) {
             for (String entry : savedData.split(";")) {
                 String[] p = entry.split(":");
                 if (p.length == 2) profileGrid.add(createAvatar(p[0], p[1], false));
             }
         }
-        
+
         profileGrid.add(createAvatar("New Login", "", true));
         profileGrid.revalidate();
         profileGrid.repaint();
@@ -118,12 +118,10 @@ public class LoginWindow extends JFrame {
         String saved = prefs.get("saved_users", "");
         List<String> list = new ArrayList<>(Arrays.asList(saved.split(";")));
         list.removeIf(entry -> entry.endsWith(":" + emailToRemove));
-        
-        if (list.isEmpty()) {
-            prefs.remove("saved_users");
-        } else {
-            prefs.put("saved_users", String.join(";", list));
-        }
+
+        if (list.isEmpty()) prefs.remove("saved_users");
+        else                prefs.put("saved_users", String.join(";", list));
+
         refreshProfiles();
     }
 
@@ -132,14 +130,14 @@ public class LoginWindow extends JFrame {
         c.setLayout(new BoxLayout(c, BoxLayout.Y_AXIS));
         c.setBackground(Color.WHITE);
 
-        JPanel avatarContainer = new JPanel(null); 
+        JPanel avatarContainer = new JPanel(null);
         avatarContainer.setOpaque(false);
         avatarContainer.setPreferredSize(new Dimension(100, 100));
         avatarContainer.setMaximumSize(new Dimension(100, 100));
         avatarContainer.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton btn = new JButton(isNew ? "+" : String.valueOf(name.charAt(0)).toUpperCase());
-        btn.setBounds(0, 10, 90, 90); 
+        btn.setBounds(0, 10, 90, 90);
         btn.setFont(new Font("SansSerif", isNew ? Font.PLAIN : Font.BOLD, isNew ? 42 : 36));
         btn.setBackground(isNew ? new Color(241, 243, 245) : new Color(0, 102, 204));
         btn.setForeground(isNew ? Color.GRAY : Color.WHITE);
@@ -162,21 +160,19 @@ public class LoginWindow extends JFrame {
 
         if (!isNew) {
             JButton delBtn = new JButton("×");
-            delBtn.setBounds(70, 0, 26, 26); 
+            delBtn.setBounds(70, 0, 26, 26);
             delBtn.setFont(new Font("SansSerif", Font.BOLD, 16));
-            delBtn.setBackground(new Color(220, 53, 69)); 
+            delBtn.setBackground(new Color(220, 53, 69));
             delBtn.setForeground(Color.WHITE);
-            delBtn.setMargin(new Insets(0,0,0,0));
+            delBtn.setMargin(new Insets(0, 0, 0, 0));
             delBtn.setFocusPainted(false);
             delBtn.setBorderPainted(false);
             delBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
             delBtn.putClientProperty("JButton.buttonType", "roundRect");
             delBtn.putClientProperty("JButton.arc", 999);
-            
             delBtn.addActionListener(e -> deleteSavedUser(email));
-            
             avatarContainer.add(delBtn);
-            avatarContainer.setComponentZOrder(delBtn, 0); 
+            avatarContainer.setComponentZOrder(delBtn, 0);
         }
 
         JLabel lbl = new JLabel(name.split(" ")[0]);
@@ -191,15 +187,15 @@ public class LoginWindow extends JFrame {
     }
 
     // ==========================================
-    // SCREEN 2: NEW LOGIN (Standard Form)
+    // SCREEN 2: STANDARD LOGIN FORM
     // ==========================================
     private JPanel createStandardLoginScreen() {
         JPanel outerPanel = new JPanel(new GridBagLayout());
         outerPanel.setBackground(Color.WHITE);
-        
+
         JPanel formContainer = new JPanel(new GridBagLayout());
         formContainer.setBackground(Color.WHITE);
-        formContainer.setPreferredSize(new Dimension(400, 600)); 
+        formContainer.setPreferredSize(new Dimension(400, 600));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
 
@@ -210,30 +206,47 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
         formContainer.add(title, gbc);
 
-        JLabel eLbl = new JLabel("Email Address"); eLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
-        gbc.gridy = 3; gbc.insets = new Insets(5, 0, 2, 0); formContainer.add(eLbl, gbc);
+        JLabel eLbl = new JLabel("Email Address");
+        eLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+        gbc.gridy = 3; gbc.insets = new Insets(5, 0, 2, 0);
+        formContainer.add(eLbl, gbc);
         styleField(standardEmailField);
-        gbc.gridy = 4; gbc.insets = new Insets(0, 0, 15, 0); formContainer.add(standardEmailField, gbc);
+        gbc.gridy = 4; gbc.insets = new Insets(0, 0, 15, 0);
+        formContainer.add(standardEmailField, gbc);
 
-        JLabel pLbl = new JLabel("Password"); pLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
-        gbc.gridy = 5; gbc.insets = new Insets(5, 0, 2, 0); formContainer.add(pLbl, gbc);
+        JLabel pLbl = new JLabel("Password");
+        pLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+        gbc.gridy = 5; gbc.insets = new Insets(5, 0, 2, 0);
+        formContainer.add(pLbl, gbc);
         styleField(standardPasswordField);
-        gbc.gridy = 6; gbc.insets = new Insets(0, 0, 30, 0); formContainer.add(standardPasswordField, gbc);
+        gbc.gridy = 6; gbc.insets = new Insets(0, 0, 30, 0);
+        formContainer.add(standardPasswordField, gbc);
 
-        JButton loginBtn = new JButton("Sign In to Account");
-        stylePrimaryButton(loginBtn, new Color(0, 102, 204));
-        gbc.gridy = 7; formContainer.add(loginBtn, gbc);
+        // --- OBJECTIVE 1 & 2: Use class-level button + add status label ---
+        stylePrimaryButton(standardLoginBtn, new Color(0, 102, 204));
+        gbc.gridy = 7; gbc.insets = new Insets(0, 0, 8, 0);
+        formContainer.add(standardLoginBtn, gbc);
+
+        // Loading label — hidden by default, shown during network call
+        gbc.gridy = 8; gbc.insets = new Insets(0, 0, 8, 0);
+        formContainer.add(standardStatusLabel, gbc);
 
         JButton signupLink = new JButton("Don't have an account? Create one");
         styleFooterBtn(signupLink);
-        gbc.gridy = 8; formContainer.add(signupLink, gbc);
+        gbc.gridy = 9; gbc.insets = new Insets(0, 0, 0, 0);
+        formContainer.add(signupLink, gbc);
 
         backToProfilesBtn = new JButton("← Back to saved profiles");
         styleFooterBtn(backToProfilesBtn);
         backToProfilesBtn.setVisible(!prefs.get("saved_users", "").isEmpty());
-        gbc.gridy = 9; formContainer.add(backToProfilesBtn, gbc);
+        gbc.gridy = 10;
+        formContainer.add(backToProfilesBtn, gbc);
 
-        loginBtn.addActionListener(e -> executeLogin(standardEmailField.getText(), new String(standardPasswordField.getPassword())));
+        // Wire actions
+        standardLoginBtn.addActionListener(e ->
+            executeLogin(standardEmailField.getText(), new String(standardPasswordField.getPassword()),
+                         standardLoginBtn, standardStatusLabel));
+        standardPasswordField.addActionListener(e -> standardLoginBtn.doClick());
         signupLink.addActionListener(e -> { this.dispose(); new SignupWindow().setVisible(true); });
         backToProfilesBtn.addActionListener(e -> cardLayout.show(mainCardPanel, "PROFILES"));
 
@@ -264,16 +277,24 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 4; gbc.insets = new Insets(10, 0, 20, 0);
         formContainer.add(profilePasswordField, gbc);
 
-        JButton loginBtn = new JButton("Sign In");
-        stylePrimaryButton(loginBtn, new Color(0, 102, 204));
-        gbc.gridy = 5; formContainer.add(loginBtn, gbc);
+        // --- OBJECTIVE 1 & 2: Use class-level button + add status label ---
+        stylePrimaryButton(profileLoginBtn, new Color(0, 102, 204));
+        gbc.gridy = 5; gbc.insets = new Insets(0, 0, 8, 0);
+        formContainer.add(profileLoginBtn, gbc);
+
+        gbc.gridy = 6; gbc.insets = new Insets(0, 0, 8, 0);
+        formContainer.add(profileStatusLabel, gbc);
 
         JButton back = new JButton("Not you? Switch account");
         styleFooterBtn(back);
-        gbc.gridy = 6; formContainer.add(back, gbc);
+        gbc.gridy = 7; gbc.insets = new Insets(0, 0, 0, 0);
+        formContainer.add(back, gbc);
 
-        loginBtn.addActionListener(e -> executeLogin(selectedProfileEmail, new String(profilePasswordField.getPassword())));
-        profilePasswordField.addActionListener(e -> loginBtn.doClick());
+        // Wire actions
+        profileLoginBtn.addActionListener(e ->
+            executeLogin(selectedProfileEmail, new String(profilePasswordField.getPassword()),
+                         profileLoginBtn, profileStatusLabel));
+        profilePasswordField.addActionListener(e -> profileLoginBtn.doClick());
         back.addActionListener(e -> cardLayout.show(mainCardPanel, "PROFILES"));
 
         outerPanel.add(formContainer);
@@ -281,56 +302,85 @@ public class LoginWindow extends JFrame {
     }
 
     // ==========================================
-    // 🌐 NEW 3-TIER API LOGIC
+    // OBJECTIVE 1 & 2: SWINGWORKER LOGIN
     // ==========================================
-    private void executeLogin(String email, String password) {
+    private void executeLogin(String email, String password, JButton callerBtn, JLabel statusLabel) {
+        // Validate on the EDT before touching the network
         if (email.trim().isEmpty() || password.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter both your email and password to sign in.", "Missing Credentials", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                "Please enter both your email and password to sign in.",
+                "Missing Credentials", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        
         if (!email.contains("@")) {
-            JOptionPane.showMessageDialog(this, "Please enter a valid email address.", "Invalid Format", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                "Please enter a valid email address.",
+                "Invalid Format", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // 1. Send HTTP request to Spring Boot instead of direct DB query
-        HttpResponse<String> response = HttpUtils.sendLoginRequest(email, password);
+        // Disable UI & show cold-start warning
+        callerBtn.setEnabled(false);
+        callerBtn.setText("Connecting...");
+        statusLabel.setText("Waking up server... this may take up to 60 seconds.");
+        statusLabel.setVisible(true);
 
-        // 2. Handle Network Drop
+        new SwingWorker<HttpResponse<String>, Void>() {
+            @Override
+            protected HttpResponse<String> doInBackground() {
+                return HttpUtils.sendLoginRequest(email, password);
+            }
+
+            @Override
+            protected void done() {
+                // Restore UI state on EDT
+                callerBtn.setEnabled(true);
+                callerBtn.setText(callerBtn == standardLoginBtn ? "Sign In to Account" : "Sign In");
+                statusLabel.setVisible(false);
+
+                try {
+                    handleLoginResponse(get(), email);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(LoginWindow.this,
+                        "An unexpected error occurred. Please try again.",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
+    // Extracted so both SwingWorker paths share the same routing logic
+    private void handleLoginResponse(HttpResponse<String> response, String email) {
         if (response == null) {
-            JOptionPane.showMessageDialog(this, "Cannot connect to the server. Please ensure the backend API is running.", "Network Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                "Cannot connect to the server. Please check your internet connection.",
+                "Network Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // 3. Handle Valid Authentication (200 OK)
         if (response.statusCode() == 200) {
             String json = response.body();
-            
-            // Extract attributes from JSON string based on your lowercase DB column names
-            String id = extractJsonValue(json, "user_id");
-            String name = extractJsonValue(json, "name");
-            String role = extractJsonValue(json, "role");
+            String id     = extractJsonValue(json, "user_id");
+            String name   = extractJsonValue(json, "name");
+            String role   = extractJsonValue(json, "role");
             String deptId = extractJsonValue(json, "dept_id");
 
             User user = new User(id, name, email, role, deptId);
-
             saveUser(user.getName(), email);
             this.dispose();
 
-            // Route dynamically based on payload role
-            if ("Admin".equalsIgnoreCase(user.getRole())) new AdminDashboard(user).setVisible(true);
+            if      ("Admin".equalsIgnoreCase(user.getRole()))     new AdminDashboard(user).setVisible(true);
             else if ("Organizer".equalsIgnoreCase(user.getRole())) new OrganizerDashboard(user).setVisible(true);
-            else new DashboardWindow(user).setVisible(true);
+            else                                                    new DashboardWindow(user).setVisible(true);
 
-        } 
-        // 4. Handle Rejected Authentication (401 Unauthorized)
-        else if (response.statusCode() == 401) {
-            JOptionPane.showMessageDialog(this, "We couldn't find an account matching those credentials.\nPlease check entered credentials.", "Authentication Failed", JOptionPane.ERROR_MESSAGE);
-        } 
-        // 5. Catch-all for 500 Server Errors
-        else {
-            JOptionPane.showMessageDialog(this, "Server encountered an error. Status Code: " + response.statusCode(), "System Error", JOptionPane.ERROR_MESSAGE);
+        } else if (response.statusCode() == 401) {
+            JOptionPane.showMessageDialog(this,
+                "We couldn't find an account matching those credentials.\nPlease check your email and password.",
+                "Authentication Failed", JOptionPane.ERROR_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this,
+                "Server encountered an error. Status Code: " + response.statusCode(),
+                "System Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -340,21 +390,19 @@ public class LoginWindow extends JFrame {
     private String extractJsonValue(String json, String key) {
         String searchKey = "\"" + key + "\":";
         int startIndex = json.indexOf(searchKey);
-        if (startIndex == -1) return null; // Key not found
-        
+        if (startIndex == -1) return null;
+
         startIndex += searchKey.length();
         int endIndex;
-        
-        // If the value is a String, it starts with quotes
+
         if (json.charAt(startIndex) == '"') {
-            startIndex++; // skip opening quote
+            startIndex++;
             endIndex = json.indexOf("\"", startIndex);
         } else {
-            // It's null or a number
             endIndex = json.indexOf(",", startIndex);
             if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
         }
-        
+
         String value = json.substring(startIndex, endIndex).trim();
         return value.equals("null") ? null : value;
     }
@@ -367,19 +415,24 @@ public class LoginWindow extends JFrame {
         String entry = name + ":" + email;
         List<String> list = new ArrayList<>();
         if (!saved.isEmpty()) list.addAll(Arrays.asList(saved.split(";")));
-        list.remove(entry); 
-        list.add(0, entry); 
+        list.remove(entry);
+        list.add(0, entry);
         if (list.size() > 4) list = list.subList(0, 4);
         prefs.put("saved_users", String.join(";", list));
     }
 
     private void addBranding(JPanel p, GridBagConstraints gbc) {
         JLabel t = new JLabel("C E M S", SwingConstants.CENTER);
-        t.setFont(new Font("SansSerif", Font.BOLD, 36)); t.setForeground(new Color(0, 102, 204));
-        gbc.gridy = 0; gbc.insets = new Insets(0, 0, 2, 0); p.add(t, gbc);
+        t.setFont(new Font("SansSerif", Font.BOLD, 36));
+        t.setForeground(new Color(0, 102, 204));
+        gbc.gridy = 0; gbc.insets = new Insets(0, 0, 2, 0);
+        p.add(t, gbc);
+
         JLabel s = new JLabel("CAMPUS EVENT MANAGEMENT SYSTEM", SwingConstants.CENTER);
-        s.setFont(new Font("SansSerif", Font.BOLD, 10)); s.setForeground(Color.LIGHT_GRAY);
-        gbc.gridy = 1; gbc.insets = new Insets(0, 0, 35, 0); p.add(s, gbc);
+        s.setFont(new Font("SansSerif", Font.BOLD, 10));
+        s.setForeground(Color.LIGHT_GRAY);
+        gbc.gridy = 1; gbc.insets = new Insets(0, 0, 35, 0);
+        p.add(s, gbc);
     }
 
     private void styleField(JTextField f) {
@@ -389,14 +442,27 @@ public class LoginWindow extends JFrame {
 
     private void stylePrimaryButton(JButton b, Color bg) {
         b.setPreferredSize(new Dimension(0, 48));
-        b.setBackground(bg); b.setForeground(Color.WHITE);
+        b.setBackground(bg);
+        b.setForeground(Color.WHITE);
         b.setFont(new Font("SansSerif", Font.BOLD, 15));
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        b.setFocusPainted(false);
     }
 
     private void styleFooterBtn(JButton b) {
-        b.setContentAreaFilled(false); b.setBorderPainted(false);
-        b.setForeground(Color.GRAY); b.setFont(new Font("SansSerif", Font.BOLD, 13));
+        b.setContentAreaFilled(false);
+        b.setBorderPainted(false);
+        b.setForeground(Color.GRAY);
+        b.setFont(new Font("SansSerif", Font.BOLD, 13));
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    /** Creates the shared "Waking up server..." label, hidden by default. */
+    private static JLabel makeStatusLabel() {
+        JLabel lbl = new JLabel("", SwingConstants.CENTER);
+        lbl.setFont(new Font("SansSerif", Font.ITALIC, 12));
+        lbl.setForeground(new Color(230, 120, 0)); // amber — informational, not an error
+        lbl.setVisible(false);
+        return lbl;
     }
 }

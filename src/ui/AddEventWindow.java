@@ -1,17 +1,17 @@
 package ui;
 
-import dao.EventDAO;
-import dao.VenueDAO;
 import models.User;
-import models.Venue; // ADDED: To use our Venue model
+import utils.HttpUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.sql.Date;
+import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class AddEventWindow extends JFrame {
@@ -101,18 +101,28 @@ public class AddEventWindow extends JFrame {
         venueLbl.setForeground(Color.GRAY);
         gbc.gridy = 10; mainContent.add(venueLbl, gbc);
 
-        // --- UPDATED: Dynamic Venue Loading using our new VenueDAO ---
-        List<Venue> availableVenues = new VenueDAO().getAvailableVenues();
-        String[] venueDisplayArray = new String[availableVenues.size() + 1];
-        venueDisplayArray[0] = "Select a Venue..."; // Default Prompt
+        // --- Dynamic Venue Loading using HttpUtils ---
+        List<String> venueOptions = new ArrayList<>();
+        venueOptions.add("Select a Venue...");
         
-        for (int i = 0; i < availableVenues.size(); i++) {
-            Venue v = availableVenues.get(i);
-            // Formats it as: "V001 - Main Auditorium (Cap: 500)"
-            venueDisplayArray[i + 1] = v.getVenueId() + " - " + v.getLocation() + " (Cap: " + v.getCapacity() + ")";
+        HttpResponse<String> response = HttpUtils.fetchAvailableVenues();
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            for (String block : json.split("}")) {
+                if (block.contains("Venue_ID")) {
+                    String id = extractJsonValue(block + "}", "Venue_ID");
+                    String location = extractJsonValue(block + "}", "Location");
+                    String cap = extractJsonValue(block + "}", "Capacity");
+                    if (id != null && location != null) {
+                        venueOptions.add(id + " - " + location + " (Cap: " + cap + ")");
+                    }
+                }
+            }
+        } else {
+            venueOptions.add("Error loading venues from server");
         }
         
-        JComboBox<String> venueBox = createStyledCombo(venueDisplayArray);
+        JComboBox<String> venueBox = createStyledCombo(venueOptions.toArray(new String[0]));
         gbc.gridy = 11; gbc.insets = new Insets(5, 0, 15, 0);
         mainContent.add(venueBox, gbc);
 
@@ -150,14 +160,12 @@ public class AddEventWindow extends JFrame {
                 venueId = selectedVenue.split(" - ")[0]; 
             }
 
-            // 1. Frontend: Empty Field Validation
             if(id.isEmpty() || title.isEmpty() || venueId.isEmpty() || venueBox.getSelectedIndex() == 0 ||
                yearBox.getSelectedIndex() == 0 || monthBox.getSelectedIndex() == 0 || dayBox.getSelectedIndex() == 0) {
                 JOptionPane.showMessageDialog(this, "Please fill in all details and select a valid venue.", "Incomplete Form", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            // 2. Frontend: Regex Validation for Event ID (Must be 'E' followed by 3 digits)
             if (!id.matches("^E\\d{3}$")) {
                 JOptionPane.showMessageDialog(this, "Event ID must start with 'E' followed by 3 digits (e.g., E001).", "Invalid ID Format", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -167,25 +175,45 @@ public class AddEventWindow extends JFrame {
                 String dateStr = yearBox.getSelectedItem() + "-" + monthBox.getSelectedItem() + "-" + dayBox.getSelectedItem();
                 LocalDate localDate = LocalDate.parse(dateStr);
                 
-                // 3. Frontend: Date Logic Validation
                 if (localDate.isBefore(LocalDate.now())) {
                     JOptionPane.showMessageDialog(this, "The event date cannot be in the past. Please select a valid future date.", "Invalid Date", JOptionPane.WARNING_MESSAGE);
                     return;
                 }
 
-                // 4. Send to Database
-                if (new EventDAO().insertEvent(id, title, Date.valueOf(localDate), venueId, currentUser.getUserId(), "Pending")) {
+                // --- UPDATED: Route Event Creation Through API ---
+                HttpResponse<String> createResponse = HttpUtils.createEvent(id, title, localDate.toString(), venueId, currentUser.getUserId(), "Pending");
+                
+                if (createResponse != null && createResponse.statusCode() == 201) {
                     if (parentDashboard != null) parentDashboard.loadMyEvents();
                     JOptionPane.showMessageDialog(this, "Event successfully proposed and sent to Admin for approval!", "Success", JOptionPane.INFORMATION_MESSAGE);
                     this.dispose();
-                } else {
-                    // Backend caught an error (handled via DAO)
+                } else if (createResponse != null && createResponse.statusCode() == 409) {
                     JOptionPane.showMessageDialog(this, "Failed to propose event. The Event ID '" + id + "' might already be in use.", "Database Error", JOptionPane.ERROR_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Network Error. Could not create event proposal.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (DateTimeParseException ex) {
                 JOptionPane.showMessageDialog(this, "The date you selected does not exist (e.g., February 31st).", "Invalid Date", JOptionPane.ERROR_MESSAGE);
             }
         });
+    }
+
+    // --- JSON PARSER UTILITY ---
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        startIndex += searchKey.length();
+        int endIndex;
+        if (json.charAt(startIndex) == '"') {
+            startIndex++;
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+        }
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
     }
 
     // --- STYLING HELPERS ---
@@ -248,9 +276,5 @@ public class AddEventWindow extends JFrame {
         btn.setFont(new Font("SansSerif", Font.BOLD, 13));
         btn.setForeground(Color.GRAY);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    }
-
-    private void showToast(String msg) {
-        JOptionPane.showMessageDialog(this, msg, "Information", JOptionPane.INFORMATION_MESSAGE);
     }
 }

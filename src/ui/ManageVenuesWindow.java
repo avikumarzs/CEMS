@@ -1,7 +1,7 @@
 package ui;
 
-import dao.VenueDAO;
-import models.Venue;
+import utils.HttpUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -9,14 +9,13 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.List;
+import java.net.http.HttpResponse;
 
 public class ManageVenuesWindow extends JFrame {
 
     private JTextField idField, locationField, capacityField;
     private JTable venueTable;
     private DefaultTableModel tableModel;
-    private VenueDAO venueDAO = new VenueDAO();
 
     public ManageVenuesWindow() {
         setTitle("CEMS - Manage Venues");
@@ -126,12 +125,17 @@ public class ManageVenuesWindow extends JFrame {
                 int cap = Integer.parseInt(capStr);
                 if (cap <= 0) throw new NumberFormatException();
                 
-                if (venueDAO.insertVenue(id, loc, cap)) {
+                // --- UPDATED: Route through API instead of DAO ---
+                HttpResponse<String> response = HttpUtils.createVenue(id, loc, cap);
+                
+                if (response != null && response.statusCode() == 201) {
                     JOptionPane.showMessageDialog(this, "Venue added successfully!");
                     idField.setText(""); locationField.setText(""); capacityField.setText("");
-                    loadVenues(); // Refresh Table
+                    loadVenues(); 
+                } else if (response != null && response.statusCode() == 409) {
+                    JOptionPane.showMessageDialog(this, "That Venue ID already exists.", "Database Error", JOptionPane.ERROR_MESSAGE);
                 } else {
-                    JOptionPane.showMessageDialog(this, "That Venue ID might already exist.", "Database Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Network Error. Could not create venue.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Capacity must be a valid positive number.", "Format Error", JOptionPane.ERROR_MESSAGE);
@@ -153,14 +157,18 @@ public class ManageVenuesWindow extends JFrame {
                 "Confirm Delete", JOptionPane.YES_NO_OPTION);
                 
             if (confirm == JOptionPane.YES_OPTION) {
-                // If this returns false, our DAO successfully protected the database!
-                if (venueDAO.deleteVenue(id)) {
+                // --- UPDATED: Route through API instead of DAO ---
+                HttpResponse<String> response = HttpUtils.deleteVenue(id);
+                
+                if (response != null && response.statusCode() == 200) {
                     JOptionPane.showMessageDialog(this, "Venue deleted successfully.");
                     loadVenues(); 
-                } else {
+                } else if (response != null && response.statusCode() == 400) {
                     JOptionPane.showMessageDialog(this, 
                         "Deletion Blocked!\n\nThere are events currently scheduled at this venue.\nPlease cancel or relocate those events before deleting the venue.", 
                         "Venue In Use", JOptionPane.ERROR_MESSAGE);
+                } else {
+                    JOptionPane.showMessageDialog(this, "Network Error. Could not delete venue.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
         });
@@ -168,10 +176,41 @@ public class ManageVenuesWindow extends JFrame {
 
     private void loadVenues() {
         tableModel.setRowCount(0);
-        List<Venue> venues = venueDAO.getAllVenues();
-        for (Venue v : venues) {
-            tableModel.addRow(new Object[]{v.getVenueId(), v.getLocation(), v.getCapacity(), v.getStatus()});
+        // --- UPDATED: Fetch from API ---
+        HttpResponse<String> response = HttpUtils.fetchAllVenues();
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            for (String block : json.split("}")) {
+                if (block.contains("Venue_ID")) {
+                    String id = extractJsonValue(block + "}", "Venue_ID");
+                    String location = extractJsonValue(block + "}", "Location");
+                    String capacity = extractJsonValue(block + "}", "Capacity");
+                    String status = extractJsonValue(block + "}", "Status");
+                    
+                    if (id != null) {
+                        tableModel.addRow(new Object[]{id, location, capacity, status});
+                    }
+                }
+            }
         }
+    }
+
+    // --- JSON PARSER UTILITY ---
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        startIndex += searchKey.length();
+        int endIndex;
+        if (json.charAt(startIndex) == '"') {
+            startIndex++;
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+        }
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
     }
 
     // --- STYLING HELPERS ---

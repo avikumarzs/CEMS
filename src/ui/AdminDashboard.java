@@ -1,14 +1,14 @@
 package ui;
 
-import dao.EventDAO;
-import models.Event;
 import models.User;
+import utils.HttpUtils;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.List;
+import java.net.http.HttpResponse;
 
 public class AdminDashboard extends JFrame {
     
@@ -17,7 +17,7 @@ public class AdminDashboard extends JFrame {
 
     public AdminDashboard(User user) {
         setTitle("Admin Portal - " + user.getName());
-        setExtendedState(JFrame.MAXIMIZED_BOTH); // Maximized from start
+        setExtendedState(JFrame.MAXIMIZED_BOTH); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -31,7 +31,6 @@ public class AdminDashboard extends JFrame {
         sidebar.setPreferredSize(new Dimension(220, 0));
         sidebar.setBorder(new EmptyBorder(20, 15, 20, 15));
 
-        // Branding
         JPanel brandingPanel = new JPanel(new GridLayout(3, 1, 5, 5));
         brandingPanel.setOpaque(false);
         
@@ -52,7 +51,6 @@ public class AdminDashboard extends JFrame {
         brandingPanel.add(nameLabel);
         sidebar.add(brandingPanel, BorderLayout.NORTH);
 
-        // Navigation Buttons
         JPanel navPanel = new JPanel(new GridLayout(7, 1, 0, 15));
         navPanel.setOpaque(false);
         navPanel.setBorder(new EmptyBorder(40, 0, 0, 0));
@@ -70,7 +68,6 @@ public class AdminDashboard extends JFrame {
         navPanel.add(refreshBtn);
         sidebar.add(navPanel, BorderLayout.CENTER);
 
-        // Sidebar Bottom: Log Out
         JButton logoutBtn = createSidebarButton("Log Out", new Color(220, 53, 69));
         sidebar.add(logoutBtn, BorderLayout.SOUTH);
 
@@ -89,7 +86,6 @@ public class AdminDashboard extends JFrame {
         title.setBorder(new EmptyBorder(0, 0, 25, 0));
         mainContent.add(title, BorderLayout.NORTH);
 
-        // UPDATED: Added "Proposed By" to leverage our 3NF Database Organizer_ID
         String[] cols = {"Event ID", "Title", "Date", "Venue", "Proposed By", "Status"};
         tableModel = new DefaultTableModel(cols, 0);
         pendingTable = new JTable(tableModel);
@@ -108,12 +104,9 @@ public class AdminDashboard extends JFrame {
         // ==========================================
         refreshBtn.addActionListener(e -> loadPendingEvents());
 
-        // Replace the old action listener with this one:
-        addVenueBtn.addActionListener(e -> {
-            new ManageVenuesWindow().setVisible(true);
-        });
+        addVenueBtn.addActionListener(e -> new ManageVenuesWindow().setVisible(true));
 
-        // APPROVE ACTION
+        // --- UPDATED: Route Approve Action Through API ---
         approveBtn.addActionListener(e -> {
             int row = pendingTable.getSelectedRow();
             if (row == -1) {
@@ -121,13 +114,17 @@ public class AdminDashboard extends JFrame {
                 return;
             }
             String id = (String) tableModel.getValueAt(row, 0);
-            if (new EventDAO().approveEvent(id)) {
+            
+            HttpResponse<String> response = HttpUtils.updateEventStatus(id, "Scheduled");
+            if (response != null && response.statusCode() == 200) {
                 JOptionPane.showMessageDialog(this, "Event Approved Successfully!");
                 loadPendingEvents();
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to approve event.", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        // REJECT ACTION
+        // --- UPDATED: Route Reject Action Through API ---
         rejectBtn.addActionListener(e -> {
             int row = pendingTable.getSelectedRow();
             if (row == -1) {
@@ -138,7 +135,8 @@ public class AdminDashboard extends JFrame {
             
             int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to reject this event?", "Confirm Rejection", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
-                if (new EventDAO().rejectEvent(id)) {
+                HttpResponse<String> response = HttpUtils.updateEventStatus(id, "Rejected");
+                if (response != null && response.statusCode() == 200) {
                     JOptionPane.showMessageDialog(this, "Event Rejected.");
                     loadPendingEvents();
                 } else {
@@ -153,10 +151,65 @@ public class AdminDashboard extends JFrame {
         });
 
         manageDeptsBtn.addActionListener(e -> {
-        new ManageDepartmentsWindow().setVisible(true);
+            new ManageDepartmentsWindow().setVisible(true);
         });
 
         loadPendingEvents();
+    }
+
+    // --- UPDATED: Fetch Pending Events from API ---
+    private void loadPendingEvents() {
+        tableModel.setRowCount(0);
+        HttpResponse<String> response = HttpUtils.fetchPendingEvents();
+        
+        if (response != null && response.statusCode() == 200) {
+            String json = response.body();
+            for (String block : json.split("}")) {
+                if (block.contains("event_id") || block.contains("Event_ID")) {
+                    
+                    // Fallback checks for lowercase vs uppercase based on TiDB responses
+                    String id = extractJsonValue(block + "}", "event_id");
+                    if (id == null) id = extractJsonValue(block + "}", "Event_ID");
+
+                    String title = extractJsonValue(block + "}", "title");
+                    if (title == null) title = extractJsonValue(block + "}", "Title");
+
+                    String date = extractJsonValue(block + "}", "event_date");
+                    if (date == null) date = extractJsonValue(block + "}", "Event_Date");
+
+                    String venue = extractJsonValue(block + "}", "venue_name");
+                    if (venue == null) venue = extractJsonValue(block + "}", "Venue_Name");
+
+                    String org = extractJsonValue(block + "}", "organizer_id");
+                    if (org == null) org = extractJsonValue(block + "}", "Organizer_ID");
+
+                    String status = extractJsonValue(block + "}", "status");
+                    if (status == null) status = extractJsonValue(block + "}", "Status");
+
+                    if (id != null) {
+                        tableModel.addRow(new Object[]{id, title, date, venue, org, status});
+                    }
+                }
+            }
+        }
+    }
+
+    // --- JSON PARSER UTILITY (ADDED) ---
+    private String extractJsonValue(String json, String key) {
+        String searchKey = "\"" + key + "\":";
+        int startIndex = json.indexOf(searchKey);
+        if (startIndex == -1) return null;
+        startIndex += searchKey.length();
+        int endIndex;
+        if (json.charAt(startIndex) == '"') {
+            startIndex++;
+            endIndex = json.indexOf("\"", startIndex);
+        } else {
+            endIndex = json.indexOf(",", startIndex);
+            if (endIndex == -1) endIndex = json.indexOf("}", startIndex);
+        }
+        String value = json.substring(startIndex, endIndex).trim();
+        return value.equals("null") ? null : value;
     }
 
     private JButton createSidebarButton(String text, Color bgColor) {
@@ -198,28 +251,11 @@ public class AdminDashboard extends JFrame {
             table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
         }
 
-        // UPDATED: Adjusted widths for the new 6-column layout
         table.getColumnModel().getColumn(0).setPreferredWidth(80);  // ID
         table.getColumnModel().getColumn(1).setPreferredWidth(300); // Title
         table.getColumnModel().getColumn(2).setPreferredWidth(100); // Date
         table.getColumnModel().getColumn(3).setPreferredWidth(200); // Venue
         table.getColumnModel().getColumn(4).setPreferredWidth(120); // Proposed By
         table.getColumnModel().getColumn(5).setPreferredWidth(100); // Status
-    }
-
-    private void loadPendingEvents() {
-        tableModel.setRowCount(0);
-        List<Event> events = new EventDAO().getPendingEvents();
-        for (Event ev : events) {
-            // UPDATED: Added ev.getOrganizerId() to populate the "Proposed By" column
-            tableModel.addRow(new Object[]{
-                ev.getEventId(), 
-                ev.getTitle(), 
-                ev.getEventDate(), 
-                ev.getVenueId(), // Remember our EventDAO now injects the actual Location Name here!
-                ev.getOrganizerId(), 
-                ev.getStatus()
-            });
-        }
     }
 }
