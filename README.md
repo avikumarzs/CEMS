@@ -2,8 +2,6 @@
 
 CEMS is a robust, 3-tier enterprise application designed to streamline the proposal, approval, and registration of academic and extracurricular events across a university campus. 
 
-Originally built as a monolithic desktop application, **v1.1 represents a complete architectural migration to a cloud-native REST API model**, ensuring high security, scalable state management, and strict separation of concerns.
-
 ---
 
 ## 🏗️ System Architecture (3-Tier)
@@ -57,7 +55,7 @@ This job performs a "Scorched Earth" total wipe of all events, venues, departmen
 
 ---
 
-## 🛠️ v1.1 Changelog
+## 🛠️ Recent Updates
 * **Security Upgrade:** Deprecated legacy DAO architecture. Removed `mysql-connector-java` from the client.
 * **Network Handling:** Implemented `HttpUtils` for standard REST communication (GET, POST, PUT, DELETE).
 * **UI/UX Enhancement:** Wrapped all HTTP calls in `SwingWorker` threads to prevent UI freezing during network latency.
