@@ -1,66 +1,64 @@
-# 🎓 CEMS - Campus Event Management System
+# 🎓 CEMS: Campus Event Management System (v1.1)
 
-![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-6DB33F?style=for-the-badge&logo=spring&logoColor=white)
-![TiDB](https://img.shields.io/badge/TiDB_Cloud-3139E0?style=for-the-badge&logo=pingcap&logoColor=white)
-![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)
+CEMS is a robust, 3-tier enterprise application designed to streamline the proposal, approval, and registration of academic and extracurricular events across a university campus. 
 
-## 📖 About the Project
+Originally built as a monolithic desktop application, **v1.1 represents a complete architectural migration to a cloud-native REST API model**, ensuring high security, scalable state management, and strict separation of concerns.
 
-**CEMS** is a robust, cloud-connected application designed to streamline the planning, approval, and registration of university events. Built with a focus on enterprise-grade architecture, CEMS solves the chaos of manual campus scheduling by providing distinct, secure workflows for Students, Event Organizers, and System Administrators.
+---
 
-This project operates on a **complete 3-tier distributed architecture**, utilizing a Java desktop client that communicates via a REST API to a cloud-hosted Spring Boot server, fully integrated with a normalized TiDB Cloud database.
+## 🏗️ System Architecture (3-Tier)
+
+CEMS utilizes a strict 3-Tier architecture to prevent direct client-to-database communication:
+
+1. **Presentation Layer (Client):** A lightweight **Java Swing** desktop application. Features asynchronous network handling (`SwingWorker`) for non-blocking UI and loading states.
+2. **Application Layer (API):** A **Spring Boot** RESTful API. Acts as the secure middleman, handling all business logic, validation, transaction rollbacks, and database routing.
+3. **Data Layer (Database):** A **TiDB / MySQL** relational database structured in 3NF, enforcing data integrity via strict Foreign Key constraints.
+
+---
 
 ## ✨ Key Features
 
-### 🔐 Smart Authentication & UI
-* **Chrome-Style Profile Manager:** Features an MRU (Most Recently Used) login screen that securely caches recent users as clickable avatars. Includes a dynamic, layered UI to seamlessly remove cached profiles.
-* **Smart Form Toggles:** Replaces outdated dropdowns with modern segmented controls (e.g., smoothly toggling between "Student" and "Organizer" sign-ups to dynamically hide/show department fields).
-
-### 🎭 Role-Based Access Control (RBAC)
-* **System Administrator (DBA):** Has root access. Can securely approve/reject proposed events, oversee all registrations, and dynamically add or remove academic departments and venues.
-* **Organizers:** Campus-wide users who can propose new events, specify venue requirements, and track live registration metrics.
-* **Students:** Can browse a live feed of approved campus events, register for open seats, and manage their personal schedules.
-
-### 🛡️ Enterprise-Grade Security & Validation
-* **Cloud-Synced Integrity:** All transactions are handled securely by the Spring Boot REST API, ensuring that seat-capacity math and student registrations never result in data corruption or overbooking.
-* **Strict Validation:** Utilizes Regular Expressions (Regex) to validate email formats, enforce strict ID structures, and block illogical inputs.
-
-## 🛠️ Tech Stack
-
-* **Frontend Client:** Java Swing (AWT, CardLayout, GridBagLayout)
-* **Backend API:** Spring Boot 3 (Java 21, REST APIs, Dockerized)
-* **Database:** TiDB Serverless (MySQL 8.0 Compatible)
-* **Cloud Infrastructure:** Render (API Hosting) & GitHub Releases (Client Distribution)
-
-## 🚀 Quick Start (No Setup Required)
-
-You do not need to build this project from source or configure a local database to test it. The backend API is fully deployed in the cloud.
-
-1. **Download the Client:** [Click here to download the latest `.jar` file](Link yet to be released.)
-2. **Prerequisites:** Ensure **Java 17+** is installed on your system.
-3. **Run the Application:**
-
-Open your terminal and execute the following command:
-```bash
-java -jar CEMS.jar
-```
-*(Alternatively, double-click the `.jar` file if your OS has Java associated with executable JARs).*
-
-## 🗄️ Database Architecture
-
-The system utilizes a strictly normalized **3NF Relational Database Schema**:
-* `User` (Handles Students, Organizers, and Admins)
-* `Department` (Dynamically linked to Students)
-* `Venue` (Tracks physical locations and maximum capacity)
-* `Event` (Tracks status: Pending, Approved, Completed)
-* `Registration` (The associative entity bridging Students and Events)
-
-## 🛣️ Future Scope (Roadmap)
-
-- [ ] **Phase 2:** Introduce JWT (JSON Web Tokens) for stateless authentication between the Swing client and Spring Boot API.
-- [ ] **Phase 3:** Develop a companion Android application for students using Kotlin, integrating with the existing backend.
-- [ ] **Phase 4:** Implement an AI-driven smart recommendation engine to suggest events to students based on their department and registration history.
+* **Role-Based Access Control (RBAC):** Dedicated portals and permissions for Students, Organizers, and Administrators.
+* **Event Lifecycle Management:** Organizers propose events, Admins approve/reject them, and Students browse and register for active events.
+* **Smart Capacity Tracking:** Real-time venue capacity validation prevents overbooking during student registration.
+* **Dynamic Timeline Math:** The API dynamically calculates whether an event is "Upcoming", "Ongoing", or "Completed" based on real-time server dates.
+* **Zero-Trust Client:** The desktop application contains zero SQL queries and zero database credentials, relying entirely on HTTP requests to the REST API.
 
 ---
-*Conceptualized and developed as an enterprise architecture showcase.*
+
+## 🚀 Installation & Setup
+
+Because CEMS is a distributed application, you will need to run both the API and the Client.
+
+### 1. The API (Spring Boot)
+1. Clone the repository and open the `cems-api` folder in your IDE.
+2. Update the `application.properties` file with your TiDB/MySQL database credentials.
+3. Run `ApiApplication.java` to start the embedded Tomcat server on `localhost:8080`.
+
+### 2. The Client (Java Swing)
+1. Open the `cems-client` folder in your IDE.
+2. Navigate to `src/utils/HttpUtils.java`.
+3. Ensure the `BASE_URL` is pointing to your API (e.g., `http://localhost:8080/api` for local testing, or your Render URL for production).
+4. Compile and run the application.
+
+---
+
+## 🧹 Configuration: Nightly Data Reset (Portfolio Mode)
+
+By default, this API is configured for a public portfolio/demo environment. To prevent database clutter from test users, a Spring Boot `@Scheduled` cron job runs at exactly **00:00:00** every night. 
+
+This job performs a "Scorched Earth" total wipe of all events, venues, departments, and user accounts (except permanent Administrators) while safely respecting Foreign Key constraints.
+
+⚠️ **If you are deploying this for real-world campus use, you MUST disable this feature:**
+
+1. Open `src/main/java/com/cems/api/ApiApplication.java`.
+2. Remove the `@EnableScheduling` annotation from the top of the class.
+3. *(Optional)* Delete the `DatabaseCleanupService.java` file entirely from the `services` package.
+
+---
+
+## 🛠️ v1.1 Changelog
+* **Security Upgrade:** Deprecated legacy DAO architecture. Removed `mysql-connector-java` from the client.
+* **Network Handling:** Implemented `HttpUtils` for standard REST communication (GET, POST, PUT, DELETE).
+* **UI/UX Enhancement:** Wrapped all HTTP calls in `SwingWorker` threads to prevent UI freezing during network latency.
+* **Bug Fix (Ghost Sessions):** Synchronized client session IDs with database auto-generated IDs by chaining asynchronous login requests immediately after successful account creation.
