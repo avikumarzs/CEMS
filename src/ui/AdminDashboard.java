@@ -106,7 +106,6 @@ public class AdminDashboard extends JFrame {
 
         addVenueBtn.addActionListener(e -> new ManageVenuesWindow().setVisible(true));
 
-        // --- UPDATED: Route Approve Action Through API ---
         approveBtn.addActionListener(e -> {
             int row = pendingTable.getSelectedRow();
             if (row == -1) {
@@ -124,7 +123,6 @@ public class AdminDashboard extends JFrame {
             }
         });
 
-        // --- UPDATED: Route Reject Action Through API ---
         rejectBtn.addActionListener(e -> {
             int row = pendingTable.getSelectedRow();
             if (row == -1) {
@@ -157,7 +155,7 @@ public class AdminDashboard extends JFrame {
         loadPendingEvents();
     }
 
-    // --- UPDATED: Fetch Pending Events from API ---
+    // --- UPDATED: Fetch Pending Events from API with UI Formatting ---
     private void loadPendingEvents() {
         tableModel.setRowCount(0);
         HttpResponse<String> response = HttpUtils.fetchPendingEvents();
@@ -167,7 +165,6 @@ public class AdminDashboard extends JFrame {
             for (String block : json.split("}")) {
                 if (block.contains("event_id") || block.contains("Event_ID")) {
                     
-                    // Fallback checks for lowercase vs uppercase based on TiDB responses
                     String id = extractJsonValue(block + "}", "event_id");
                     if (id == null) id = extractJsonValue(block + "}", "Event_ID");
 
@@ -176,11 +173,19 @@ public class AdminDashboard extends JFrame {
 
                     String date = extractJsonValue(block + "}", "event_date");
                     if (date == null) date = extractJsonValue(block + "}", "Event_Date");
+                    
+                    // CLEANUP: Split the ISO Date string at 'T' to keep only YYYY-MM-DD
+                    if (date != null && date.contains("T")) {
+                        date = date.substring(0, date.indexOf("T"));
+                    }
 
                     String venue = extractJsonValue(block + "}", "venue_name");
                     if (venue == null) venue = extractJsonValue(block + "}", "Venue_Name");
 
-                    String org = extractJsonValue(block + "}", "organizer_id");
+                    // FALLBACK CHAIN: Look for Name first, fallback to ID if the backend hasn't joined tables
+                    String org = extractJsonValue(block + "}", "organizer_name");
+                    if (org == null) org = extractJsonValue(block + "}", "Organizer_Name");
+                    if (org == null) org = extractJsonValue(block + "}", "organizer_id");
                     if (org == null) org = extractJsonValue(block + "}", "Organizer_ID");
 
                     String status = extractJsonValue(block + "}", "status");
@@ -194,7 +199,7 @@ public class AdminDashboard extends JFrame {
         }
     }
 
-    // --- JSON PARSER UTILITY (ADDED) ---
+    // --- JSON PARSER UTILITY ---
     private String extractJsonValue(String json, String key) {
         String searchKey = "\"" + key + "\":";
         int startIndex = json.indexOf(searchKey);

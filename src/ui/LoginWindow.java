@@ -27,7 +27,6 @@ public class LoginWindow extends JFrame {
     private Preferences prefs = Preferences.userNodeForPackage(LoginWindow.class);
 
     // --- OBJECTIVE 1 & 2: Class-level button and status label references ---
-    // Needed so executeLogin() can disable/enable them from outside their creating methods.
     private JButton standardLoginBtn = new JButton("Sign In to Account");
     private JButton profileLoginBtn  = new JButton("Sign In");
     private JLabel  standardStatusLabel = makeStatusLabel();
@@ -222,12 +221,10 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 6; gbc.insets = new Insets(0, 0, 30, 0);
         formContainer.add(standardPasswordField, gbc);
 
-        // --- OBJECTIVE 1 & 2: Use class-level button + add status label ---
         stylePrimaryButton(standardLoginBtn, new Color(0, 102, 204));
         gbc.gridy = 7; gbc.insets = new Insets(0, 0, 8, 0);
         formContainer.add(standardLoginBtn, gbc);
 
-        // Loading label — hidden by default, shown during network call
         gbc.gridy = 8; gbc.insets = new Insets(0, 0, 8, 0);
         formContainer.add(standardStatusLabel, gbc);
 
@@ -242,7 +239,6 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 10;
         formContainer.add(backToProfilesBtn, gbc);
 
-        // Wire actions
         standardLoginBtn.addActionListener(e ->
             executeLogin(standardEmailField.getText(), new String(standardPasswordField.getPassword()),
                          standardLoginBtn, standardStatusLabel));
@@ -273,11 +269,16 @@ public class LoginWindow extends JFrame {
         gbc.gridy = 2; gbc.insets = new Insets(0, 0, 40, 0);
         formContainer.add(profileWelcomeLabel, gbc);
 
+        // --- NEW: Added Password Label ---
+        JLabel pLbl = new JLabel("Password");
+        pLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+        gbc.gridy = 3; gbc.insets = new Insets(5, 0, 2, 0);
+        formContainer.add(pLbl, gbc);
+
         styleField(profilePasswordField);
-        gbc.gridy = 4; gbc.insets = new Insets(10, 0, 20, 0);
+        gbc.gridy = 4; gbc.insets = new Insets(0, 0, 30, 0); // Matched standard form padding
         formContainer.add(profilePasswordField, gbc);
 
-        // --- OBJECTIVE 1 & 2: Use class-level button + add status label ---
         stylePrimaryButton(profileLoginBtn, new Color(0, 102, 204));
         gbc.gridy = 5; gbc.insets = new Insets(0, 0, 8, 0);
         formContainer.add(profileLoginBtn, gbc);
@@ -305,7 +306,6 @@ public class LoginWindow extends JFrame {
     // OBJECTIVE 1 & 2: SWINGWORKER LOGIN
     // ==========================================
     private void executeLogin(String email, String password, JButton callerBtn, JLabel statusLabel) {
-        // Validate on the EDT before touching the network
         if (email.trim().isEmpty() || password.trim().isEmpty()) {
             JOptionPane.showMessageDialog(this,
                 "Please enter both your email and password to sign in.",
@@ -319,7 +319,6 @@ public class LoginWindow extends JFrame {
             return;
         }
 
-        // Disable UI & show cold-start warning
         callerBtn.setEnabled(false);
         callerBtn.setText("Connecting...");
         statusLabel.setText("Waking up server... this may take up to 60 seconds.");
@@ -333,7 +332,6 @@ public class LoginWindow extends JFrame {
 
             @Override
             protected void done() {
-                // Restore UI state on EDT
                 callerBtn.setEnabled(true);
                 callerBtn.setText(callerBtn == standardLoginBtn ? "Sign In to Account" : "Sign In");
                 statusLabel.setVisible(false);
@@ -349,7 +347,6 @@ public class LoginWindow extends JFrame {
         }.execute();
     }
 
-    // Extracted so both SwingWorker paths share the same routing logic
     private void handleLoginResponse(HttpResponse<String> response, String email) {
         if (response == null) {
             JOptionPane.showMessageDialog(this,
@@ -371,7 +368,7 @@ public class LoginWindow extends JFrame {
 
             if      ("Admin".equalsIgnoreCase(user.getRole()))     new AdminDashboard(user).setVisible(true);
             else if ("Organizer".equalsIgnoreCase(user.getRole())) new OrganizerDashboard(user).setVisible(true);
-            else                                                    new DashboardWindow(user).setVisible(true);
+            else                                                   new DashboardWindow(user).setVisible(true);
 
         } else if (response.statusCode() == 401) {
             JOptionPane.showMessageDialog(this,
@@ -457,11 +454,10 @@ public class LoginWindow extends JFrame {
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
     }
 
-    /** Creates the shared "Waking up server..." label, hidden by default. */
     private static JLabel makeStatusLabel() {
         JLabel lbl = new JLabel("", SwingConstants.CENTER);
         lbl.setFont(new Font("SansSerif", Font.ITALIC, 12));
-        lbl.setForeground(new Color(230, 120, 0)); // amber — informational, not an error
+        lbl.setForeground(new Color(230, 120, 0)); 
         lbl.setVisible(false);
         return lbl;
     }

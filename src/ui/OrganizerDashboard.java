@@ -129,6 +129,14 @@ public class OrganizerDashboard extends JFrame {
         String[] cols = {"Event ID", "Title", "Date", "Status", "Registrations", "Venue"};
         tableModel.setColumnIdentifiers(cols);
         tableModel.setRowCount(0);
+
+        // Re-apply column widths specifically for the Events view
+        mainTable.getColumnModel().getColumn(0).setPreferredWidth(80);  
+        mainTable.getColumnModel().getColumn(1).setPreferredWidth(300); 
+        mainTable.getColumnModel().getColumn(2).setPreferredWidth(100); 
+        mainTable.getColumnModel().getColumn(3).setPreferredWidth(100); 
+        mainTable.getColumnModel().getColumn(4).setPreferredWidth(120); 
+        mainTable.getColumnModel().getColumn(5).setPreferredWidth(200); 
         
         HttpResponse<String> response = HttpUtils.fetchOrganizerEvents(currentUser.getUserId());
         if (response != null && response.statusCode() == 200) {
@@ -144,6 +152,11 @@ public class OrganizerDashboard extends JFrame {
 
                     String date = extractJsonValue(block + "}", "event_date");
                     if (date == null) date = extractJsonValue(block + "}", "Event_Date");
+
+                    // FIX: Clean the ISO Date string (splits at the 'T' and keeps only the YYYY-MM-DD)
+                    if (date != null && date.contains("T")) {
+                        date = date.substring(0, date.indexOf("T"));
+                    }
 
                     String status = extractJsonValue(block + "}", "status");
                     if (status == null) status = extractJsonValue(block + "}", "Status");
@@ -167,6 +180,12 @@ public class OrganizerDashboard extends JFrame {
         tableModel.setColumnIdentifiers(cols);
         tableModel.setRowCount(0);
         
+        // Re-apply column widths specifically for the Venues view
+        mainTable.getColumnModel().getColumn(0).setPreferredWidth(100);  
+        mainTable.getColumnModel().getColumn(1).setPreferredWidth(300); 
+        mainTable.getColumnModel().getColumn(2).setPreferredWidth(100); 
+        mainTable.getColumnModel().getColumn(3).setPreferredWidth(100); 
+
         HttpResponse<String> response = HttpUtils.fetchAvailableVenues();
         if (response != null && response.statusCode() == 200) {
             String json = response.body();

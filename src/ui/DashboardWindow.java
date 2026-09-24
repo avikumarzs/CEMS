@@ -182,11 +182,27 @@ public class DashboardWindow extends JFrame {
             String[] blocks = json.split("},\\{");
             for (String block : blocks) {
                 String id = extractJsonValue(block, "event_id");
+                if (id == null) id = extractJsonValue(block, "Event_ID");
+
                 String title = extractJsonValue(block, "title");
+                if (title == null) title = extractJsonValue(block, "Title");
+
                 String dateStr = extractJsonValue(block, "event_date");
+                if (dateStr == null) dateStr = extractJsonValue(block, "Event_Date");
+
+                // --- NEW: Clean the ISO Date string ---
+                if (dateStr != null && dateStr.contains("T")) {
+                    dateStr = dateStr.substring(0, dateStr.indexOf("T"));
+                }
+
                 String status = extractJsonValue(block, "status");
+                if (status == null) status = extractJsonValue(block, "Status");
+
                 String regs = extractJsonValue(block, "current_registrations");
+                if (regs == null) regs = extractJsonValue(block, "Current_Registrations");
+
                 String venue = extractJsonValue(block, "venue_name");
+                if (venue == null) venue = extractJsonValue(block, "Venue_Name");
 
                 if (id != null) {
                     tableModel.addRow(new Object[]{id, title, dateStr, status, regs, venue});
@@ -254,6 +270,18 @@ public class DashboardWindow extends JFrame {
             }
         };
 
-        for (int i = 0; i < table.getColumnCount(); i++) table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
+        for (int i = 0; i < table.getColumnCount(); i++) {
+            table.getColumnModel().getColumn(i).setCellRenderer(paddedRenderer);
+        }
+        
+        // --- NEW: Adjusted column widths for proper alignment ---
+        if (table.getColumnCount() == 6) {
+            table.getColumnModel().getColumn(0).setPreferredWidth(80);  // ID
+            table.getColumnModel().getColumn(1).setPreferredWidth(300); // Title
+            table.getColumnModel().getColumn(2).setPreferredWidth(100); // Date
+            table.getColumnModel().getColumn(3).setPreferredWidth(100); // Status
+            table.getColumnModel().getColumn(4).setPreferredWidth(120); // Registrations
+            table.getColumnModel().getColumn(5).setPreferredWidth(200); // Venue
+        }
     }
 }
